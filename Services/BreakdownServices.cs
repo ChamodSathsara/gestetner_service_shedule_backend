@@ -42,7 +42,7 @@ namespace ServvistaWebAppAPI.Services
         }
 
         public async Task<List<BreakdownCategoriesModel>> GetSolutionCategoriesAsync()
-        {
+            {
             List<BreakdownCategoriesModel> breakdownCategories = new List<BreakdownCategoriesModel>();
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {

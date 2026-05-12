@@ -11,5 +11,6 @@
         public string CITY { get; set; } 
         public bool IS_ACTIVE { get; set; }
         public string PASSWORD_HASH { get; set; } 
+        public string USER_ROLE { get; set; }
     }
 }

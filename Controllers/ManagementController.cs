@@ -127,7 +127,7 @@ namespace ServvistaWebAppAPI.Controllers
         }
 
         [Authorize]
-        [HttpGet("getTechniciansPerformence")]
+        [HttpGet("getTechniciansPerformance")]
         public IActionResult GetTechniciansPerformence()
         {
             try

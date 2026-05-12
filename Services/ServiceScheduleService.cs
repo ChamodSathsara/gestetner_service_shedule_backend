@@ -617,7 +617,7 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
                             machinerefno = machineRefNo,
                             rowid = jobID
                         });
-
+                        
                         //Send customer a SMS after completing the Service jobs 
                         visitNo = visitNo - 1;
                         string feedbackLink = $"https://servvistagcp-001-site15.anytempurl.com/customer-feedback-machines/{serialNo}/service/{jobID}?visitNo={visitNo}?CompanyID={companyID}";

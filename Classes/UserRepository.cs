@@ -51,13 +51,39 @@ namespace ServvistaWebAppAPI.Classes
                     break;
             }
             const string query = @"
-            SELECT COM_ID, TECH_CODE, TECH_NAME, MOBILE_NO, EMAIL, AREA, CITY, IS_ACTIVE, PASSWORD_HASH
+            SELECT COM_ID, TECH_CODE, TECH_NAME, MOBILE_NO, EMAIL, AREA, CITY, IS_ACTIVE, PASSWORD_HASH , USER_ROLE
             FROM MTBL_TECH_OFFICERS WHERE TECH_CODE = @techcode";
 
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
                 return await connection.QuerySingleOrDefaultAsync<MTBL_TECH_OFFICERS>(query, new { techcode = techCode});
+            }
+        }
+
+
+        public async Task<AppUsers> GetManagerDetails(string mobileno)
+        {
+            const string query = @"
+            SELECT 
+                COM_ID, 
+                USER_CODE, 
+                USER_NAME, 
+                MOBILE_NO, 
+                EMAIL, 
+                AREA, 
+                CITY, 
+                IS_ACTIVE, 
+                PASSWORD_HASH,
+                USER_ROLE
+            FROM APP_USERS
+            WHERE MOBILE_NO = @mobileno";
+
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                var data = await connection.QuerySingleOrDefaultAsync<AppUsers>(query, new { mobileno = mobileno });
+                return data;
             }
         }
     }

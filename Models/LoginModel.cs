@@ -6,5 +6,6 @@
         public string? SERIAL_NO { get; set; }
         public string Password { get; set; } 
         public string companyID { get; set; }
+        public string? mobileNo { get; set; }
     }
 }

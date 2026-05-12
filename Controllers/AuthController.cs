@@ -66,16 +66,19 @@ namespace ServvistaWebAppAPI.Controllers
         {
             // 1️⃣ Try machine login first
             var machineTransaction =
-                await _repo.GetCustomerInfoBySerial(request.SERIAL_NO, request.companyID);
+                await _repo.GetCustomerInfoBySerial(request.SERIAL_NO , request.companyID);
 
             // 2️⃣ If machine not found, try tech login
             var techInformation =
                 machineTransaction == null
-                    ? await _repo.GetByUserNameAsync(request.TECH_CODE, request.companyID)
+                    ? await _repo.GetByUserNameAsync(request.TECH_CODE , request.companyID)
                     : null;
 
+            var managerInformation = machineTransaction == null && techInformation == null ? await _repo.GetManagerDetails(request.mobileNo) : null;
+
+
             // 3️⃣ If neither exists → invalid credentials
-            if (machineTransaction == null && techInformation == null)
+            if (machineTransaction == null && techInformation == null && managerInformation == null)
             {
                 return Unauthorized("Invalid Credentials");
             }
@@ -99,9 +102,9 @@ namespace ServvistaWebAppAPI.Controllers
                 }
 
                 (token, expiresAt) =
-                    _jwt.GenerateToken(techInformation.TECH_CODE, request.companyID);
+                    _jwt.GenerateToken(techInformation.TECH_CODE  , request.companyID);
 
-                var refreshToken = _jwt.GenerateRefreshToken(techInformation.TECH_CODE).Token;                
+                var refreshToken = _jwt.GenerateRefreshToken(techInformation.TECH_CODE).Token;
 
                 return Ok(new LoginResponseModel
                 {
@@ -113,7 +116,43 @@ namespace ServvistaWebAppAPI.Controllers
                     CITY = techInformation.CITY,
                     EMAIL = techInformation.EMAIL,
                     IS_ACTIVE = techInformation.IS_ACTIVE,
-                    MOBILE_NO = techInformation.MOBILE_NO
+                    MOBILE_NO = techInformation.MOBILE_NO,
+                    USER_ROLE = techInformation.USER_ROLE
+                });
+            }
+
+            // ================= MANAGER LOGIN =================
+            if (managerInformation != null)
+            {
+                var hashedPassword = PasswordHasher.Hash(request.Password);
+
+                if (hashedPassword != managerInformation.PASSWORD_HASH)
+                {
+                    return Unauthorized("Invalid Credentials");
+                }
+
+                if (!managerInformation.IS_ACTIVE)
+                {
+                    return Unauthorized("User is Inactive");
+                }
+
+                (token, expiresAt) =
+                    _jwt.GenerateToken(managerInformation.MOBILE_NO , request.companyID);
+
+                var refreshToken = _jwt.GenerateRefreshToken(managerInformation.MOBILE_NO).Token;
+
+                return Ok(new LoginResponseModel
+                {
+                    TOKEN = token,
+                    REFRESH_TOKEN = refreshToken,
+                    USER_CODE = managerInformation.USER_CODE,
+                    USER_NAME = managerInformation.USER_NAME,
+                    AREA = managerInformation.AREA,
+                    CITY = managerInformation.CITY,
+                    EMAIL = managerInformation.EMAIL,
+                    IS_ACTIVE = managerInformation.IS_ACTIVE,
+                    MOBILE_NO = managerInformation.MOBILE_NO,
+                    USER_ROLE = managerInformation.USER_ROLE
                 });
             }
 

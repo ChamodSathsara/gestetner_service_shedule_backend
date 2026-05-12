@@ -1,5 +1,6 @@
 ﻿using System.Data;
 using System.Data.SqlClient;
+using Dapper;
 using ServvistaWebAppAPI.Models;
 using ServvistaWebAppAPI.Models.Dtos;
 using ServvistaWebAppAPI.Repositories;
@@ -16,7 +17,7 @@ namespace ServvistaWebAppAPI.Services
         {
             _tenantService = tenantService;
             _connectionString = _tenantService.GetConnectionString();            
-        }
+        }        
 
         public JobCountAndRateDto GetJobCountAndRate()
         {
@@ -510,64 +511,106 @@ namespace ServvistaWebAppAPI.Services
 
         public List<TechnicianPerformenceDto> GetTechniciansPerformence()
         {
-            return new List<TechnicianPerformenceDto>
+            try
             {
-                new TechnicianPerformenceDto
+                List<TechnicianPerformenceDto> technicianPerformance = new List<TechnicianPerformenceDto>();
+                using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
-                    tech_id = "0000127",
-                    name = "Sudesh",
-                    completedJobs = 20,
-                    rating = 4.3,
-                    services = 10,
-                    breakdowns = 5
-                },
-                new TechnicianPerformenceDto
-                {
-                    tech_id = "0000128",
-                    name = "Nimal",
-                    completedJobs = 15,
-                    rating = 3.8,
-                    services = 8,
-                    breakdowns = 7
-                },
-                new TechnicianPerformenceDto
-                {
-                    tech_id = "0000129",
-                    name = "Kamal",
-                    completedJobs = 25,
-                    rating = 5.0,
-                    services = 12,
-                    breakdowns = 3
-                },
-                new TechnicianPerformenceDto
-                {
-                    tech_id = "0000125",
-                    name = "Sudesh",
-                    completedJobs = 20,
-                    rating = 4.3,
-                    services = 10,
-                    breakdowns = 5
-                },
-                new TechnicianPerformenceDto
-                {
-                    tech_id = "0000124",
-                    name = "Nimal",
-                    completedJobs = 15,
-                    rating = 3.8,
-                    services = 8,
-                    breakdowns = 7
-                },
-                new TechnicianPerformenceDto
-                {
-                    tech_id = "0000123",
-                    name = "Kamal",
-                    completedJobs = 25,
-                    rating = 5.0,
-                    services = 12,
-                    breakdowns = 3
+                    connection.Open();
+                    string getTechniciansQuery = @"
+                    SELECT 
+                        t.TECH_CODE as tech_id,
+                        t.TECH_NAME as name,
+
+                        (SELECT COUNT(*) 
+                         FROM TBL_SCHEDULE_ACTIVITY j 
+                         WHERE j.COMPLETED_BY = t.TECH_CODE 
+                         AND (TYPE = 'Job Recall' OR TYPE = 'Job')) AS completedJobs,
+
+                        (SELECT AVG(r.RATING) 
+                         FROM TBL_SV_CUSTOMER_JOB_FEEDBACKS r 
+                         WHERE r.TECH_CODE = t.TECH_CODE) AS rating, 
+
+	                     (SELECT COUNT(*) 
+	                     FROM TBL_SCHEDULE_ACTIVITY S
+	                     WHERE S.COMPLETED_BY = t.TECH_CODE) AS services, 
+
+	                     (SELECT COUNT(*) 
+	                     FROM TBL_DAILY_JOBS DJ
+	                     WHERE DJ.TECH_CODE = t.TECH_CODE) AS breakdowns
+
+                    FROM MTBL_TECH_OFFICERS t";
+
+                    var result = connection.Query<TechnicianPerformenceDto>(getTechniciansQuery).ToList();
                 }
-            };
+                return technicianPerformance;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
         }
+
+        //public List<TechnicianPerformenceDto> GetTechniciansPerformence()
+        //{
+        //    return new List<TechnicianPerformenceDto>
+        //    {
+        //        new TechnicianPerformenceDto
+        //        {
+        //            tech_id = "0000127",
+        //            name = "Sudesh",
+        //            completedJobs = 20, //total completed jobs - counts 
+        //            rating = 4.3, //Average rating from customers - average counts
+        //            services = 10, //total completed visits - counts
+        //            breakdowns = 5 //total breakdowns assigned to technician - counts 
+        //        },
+        //        new TechnicianPerformenceDto
+        //        {
+        //            tech_id = "0000128",
+        //            name = "Nimal",
+        //            completedJobs = 15,
+        //            rating = 3.8,
+        //            services = 8,
+        //            breakdowns = 7
+        //        },
+        //        new TechnicianPerformenceDto
+        //        {
+        //            tech_id = "0000129",
+        //            name = "Kamal",
+        //            completedJobs = 25,
+        //            rating = 5.0,
+        //            services = 12,
+        //            breakdowns = 3
+        //        },
+        //        new TechnicianPerformenceDto
+        //        {
+        //            tech_id = "0000125",
+        //            name = "Sudesh",
+        //            completedJobs = 20,
+        //            rating = 4.3,
+        //            services = 10,
+        //            breakdowns = 5
+        //        },
+        //        new TechnicianPerformenceDto
+        //        {
+        //            tech_id = "0000124",
+        //            name = "Nimal",
+        //            completedJobs = 15,
+        //            rating = 3.8,
+        //            services = 8,
+        //            breakdowns = 7
+        //        },
+        //        new TechnicianPerformenceDto
+        //        {
+        //            tech_id = "0000123",
+        //            name = "Kamal",
+        //            completedJobs = 25,
+        //            rating = 5.0,
+        //            services = 12,
+        //            breakdowns = 3
+        //        }
+        //    };
+        //}
 
         public List<OlderstDueDto> GetOldestDueJobs()
         {
