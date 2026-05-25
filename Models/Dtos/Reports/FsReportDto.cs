@@ -1,0 +1,71 @@
+﻿namespace ServvistaWebAppAPI.Models.Dtos.Reports
+{
+    public class FsReportDto
+    {
+        public string? ComId { get; set; }
+        public string? SerialNo { get; set; }
+        public string? DivisionId { get; set; }
+        public string? AgreementId { get; set; }
+        public string? CusCode { get; set; }
+        public string? CusName { get; set; }
+        public string? InvAdd1 { get; set; }
+        public string? InvAdd2 { get; set; }
+        public string? InvAdd3 { get; set; }
+        public string? TelNo { get; set; }
+        public string? FaxNo { get; set; }
+        public string? CusGrade { get; set; }
+        public string? MachineRefCode { get; set; }
+        public string? MachineCode { get; set; }
+        public string? MachineDesc { get; set; }
+        public string? MLoc1 { get; set; }
+        public string? MLoc2 { get; set; }
+        public string? MLoc3 { get; set; }
+        public string? MachineMode { get; set; }
+        public string? MLocContactName { get; set; }
+        public string? MLocContactNo { get; set; }
+        public string? MfpCity { get; set; }
+        public string? TOfficerCode { get; set; }
+        public string? TOfficerName { get; set; }
+        public string? MInvNo { get; set; }
+        public DateTime? MInvDate { get; set; }
+        public DateTime? MInsDate { get; set; }
+        public DateTime? MWarrantyEndDate { get; set; }
+        public string? LaborWarranty { get; set; }
+        public string? PartsWarranty { get; set; }
+        public string? IsTransport { get; set; }
+        public string? Provision { get; set; }
+        public string? CusStatus { get; set; }
+        public int? VisitsPerYear { get; set; }
+        public string? InvNoTc { get; set; }
+        public DateTime? InvDateTc { get; set; }
+        public string? Team { get; set; }
+        public DateTime? MaPeriodStart { get; set; }
+        public DateTime? MaPeriodEnd { get; set; }
+        public string? Special { get; set; }
+        public string? DataChecked { get; set; }
+        public string? RepCode { get; set; }
+        public string? RepName { get; set; }
+        public string? ToCode { get; set; }
+        public string? ToName { get; set; }
+        public string? ToAreaCode { get; set; }
+        public string? ToAreaName { get; set; }
+        public string? DealerId { get; set; }
+        public string? DealerName { get; set; }
+        public string? ConsRepCode { get; set; }
+        public string? ConsRepName { get; set; }
+        public DateTime? ServiceDate { get; set; }
+        public string? VisitCode { get; set; }
+        public string? WarrantyTypeId { get; set; }
+        public string? WarrantyTypeDesc { get; set; }
+        public string? MachineType { get; set; }
+        public string? AdRemort { get; set; }
+        public string? CusType { get; set; }
+        public string? SageCode { get; set; }
+        public string? SubCusType { get; set; }
+        public string? ConsComment { get; set; }
+        public string? CusEmail { get; set; }
+        public int? WarrantyYears { get; set; }
+        public string? CnNo { get; set; }
+        public string? MLocTelephone { get; set; }
+    }
+}

@@ -1,9 +1,10 @@
-﻿using System.Data;
-using System.Data.SqlClient;
-using Dapper;
+﻿using Dapper;
 using ServvistaWebAppAPI.Models;
 using ServvistaWebAppAPI.Models.Dtos;
 using ServvistaWebAppAPI.Repositories;
+using System.Data;
+using System.Data.SqlClient;
+using System.Text.RegularExpressions;
 
 
 namespace ServvistaWebAppAPI.Services
@@ -11,13 +12,13 @@ namespace ServvistaWebAppAPI.Services
     public class ManagementServices : IManagementRepository
     {
         private readonly string _connectionString;
-        private readonly ITenantService _tenantService; 
+        private readonly ITenantService _tenantService;
 
-        public ManagementServices(IConfiguration config, ITenantService tenantService   )
+        public ManagementServices(IConfiguration config, ITenantService tenantService)
         {
             _tenantService = tenantService;
-            _connectionString = _tenantService.GetConnectionString();            
-        }        
+            _connectionString = _tenantService.GetConnectionString();
+        }
 
         public JobCountAndRateDto GetJobCountAndRate()
         {
@@ -63,28 +64,38 @@ namespace ServvistaWebAppAPI.Services
         public JobCountAndRateDto GetServiceCountAndRate()
         {
             string servicesCountQuery = @"
-                SELECT COUNT(*) AS totalRow
-                FROM dbo.TBL_SERVICE_SCEDULE_UPDATE s
-                INNER JOIN dbo.MTBL_CUSTOMER_MASTER c
-                    ON c.CUS_CODE = s.CUS_ID
-                CROSS APPLY
-                (
-                    VALUES
-                        ('EXPT_SV1', s.EXPT_SV1, s.SV1),
-                        ('EXPT_SV2', s.EXPT_SV2, s.SV2),
-                        ('EXPT_SV3', s.EXPT_SV3, s.SV3),
-                        ('EXPT_SV4', s.EXPT_SV4, s.SV4),
-                        ('EXPT_SV5', s.EXPT_SV5, s.SV5),
-                        ('EXPT_SV6', s.EXPT_SV6, s.SV6)
-                ) v (VisitNo, ExpectedDate, ActualVisit)
-                WHERE v.ExpectedDate IS NOT NULL
-                AND v.ExpectedDate >= DATEADD(DAY, -30, GETDATE());
-            ";
+                SELECT COUNT(*)
+                FROM TBL_SERVICE_SCEDULE_UPDATE
+                WHERE
+                    (
+                        EXPT_SV1 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
+                    )
+                    OR
+                    (
+                        EXPT_SV2 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
+                    )
+                    OR
+                    (
+                        EXPT_SV3 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
+                    )
+                    OR
+                    (
+                        EXPT_SV4 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
+                    )
+                    OR
+                    (
+                        EXPT_SV5 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
+                    )
+                    OR
+                    (
+                        EXPT_SV6 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
+                    );
+                    ";
 
             string successCountQuery = @"
                 SELECT COUNT(*) AS completeRow
-                FROM dbo.TBL_SERVICE_SCEDULE_UPDATE s
-                INNER JOIN dbo.MTBL_CUSTOMER_MASTER c
+                FROM TBL_SERVICE_SCEDULE_UPDATE s
+                INNER JOIN MTBL_CUSTOMER_MASTER c
                     ON c.CUS_CODE = s.CUS_ID
                 CROSS APPLY
                 (
@@ -203,8 +214,8 @@ namespace ServvistaWebAppAPI.Services
                 WHEN v.ActualVisit IS NOT NULL THEN 'COMPLETED'
                 ELSE 'PENDING'
             END AS VisitStatus
-        FROM dbo.TBL_SERVICE_SCEDULE_UPDATE s
-        INNER JOIN dbo.MTBL_CUSTOMER_MASTER c
+        FROM TBL_SERVICE_SCEDULE_UPDATE s
+        INNER JOIN MTBL_CUSTOMER_MASTER c
             ON c.CUS_CODE = s.CUS_ID
         CROSS APPLY
         (
@@ -351,8 +362,8 @@ namespace ServvistaWebAppAPI.Services
                 COUNT(*) AS total,
                 SUM(CASE WHEN v.ActualVisit IS NOT NULL THEN 1 ELSE 0 END) AS completed,
                 SUM(CASE WHEN v.ActualVisit IS NULL     THEN 1 ELSE 0 END) AS pending
-            FROM dbo.TBL_SERVICE_SCEDULE_UPDATE s WITH (NOLOCK)
-            INNER JOIN dbo.MTBL_CUSTOMER_MASTER c WITH (NOLOCK)
+            FROM TBL_SERVICE_SCEDULE_UPDATE s WITH (NOLOCK)
+            INNER JOIN MTBL_CUSTOMER_MASTER c WITH (NOLOCK)
                 ON c.CUS_CODE = s.CUS_ID
             CROSS APPLY
             (
@@ -443,7 +454,7 @@ namespace ServvistaWebAppAPI.Services
             COUNT(CASE WHEN JOB_STATUS = 'CANCELLED'               THEN 1 END) AS cancel,
             COUNT(*) AS total
         FROM TBL_DAILY_JOBS WITH (NOLOCK)
-        WHERE DJ_DATE >= DATEADD(DAY, -7, GETDATE())
+        WHERE DJ_DATE >= DATEADD(DAY, -10, GETDATE())
         GROUP BY CAST(DJ_DATE AS DATE)
         ORDER BY CAST(DJ_DATE AS DATE)";
 
@@ -518,30 +529,57 @@ namespace ServvistaWebAppAPI.Services
                 {
                     connection.Open();
                     string getTechniciansQuery = @"
-                    SELECT 
-                        t.TECH_CODE as tech_id,
-                        t.TECH_NAME as name,
+                    SELECT TOP 5
+                        t.TECH_CODE AS tech_id,
+                        t.TECH_NAME AS name,
 
-                        (SELECT COUNT(*) 
-                         FROM TBL_SCHEDULE_ACTIVITY j 
-                         WHERE j.COMPLETED_BY = t.TECH_CODE 
-                         AND (TYPE = 'Job Recall' OR TYPE = 'Job')) AS completedJobs,
+                        COALESCE(j.completedJobs, 0) AS completedJobs,
+                        COALESCE(f.rating, 0) AS rating,
+                        COALESCE(s.services, 0) AS services,
+                        COALESCE(d.breakdowns, 0) AS breakdowns
 
-                        (SELECT AVG(r.RATING) 
-                         FROM TBL_SV_CUSTOMER_JOB_FEEDBACKS r 
-                         WHERE r.TECH_CODE = t.TECH_CODE) AS rating, 
+                    FROM MTBL_TECH_OFFICERS t
 
-	                     (SELECT COUNT(*) 
-	                     FROM TBL_SCHEDULE_ACTIVITY S
-	                     WHERE S.COMPLETED_BY = t.TECH_CODE) AS services, 
+                    -- Completed Jobs
+                    LEFT JOIN (
+                        SELECT 
+                            COMPLETED_BY,
+                            COUNT(*) AS completedJobs
+                        FROM TBL_SCHEDULE_ACTIVITY
+                        WHERE TYPE IN ('Job Recall', 'Job')
+                        GROUP BY COMPLETED_BY
+                    ) j ON j.COMPLETED_BY = t.TECH_CODE
 
-	                     (SELECT COUNT(*) 
-	                     FROM TBL_DAILY_JOBS DJ
-	                     WHERE DJ.TECH_CODE = t.TECH_CODE) AS breakdowns
+                    -- Rating (FIXED HERE)
+                    LEFT JOIN (
+                        SELECT 
+                            TECH_CODE,
+                            AVG(TRY_CAST(RATING AS FLOAT)) AS rating
+                        FROM TBL_SV_CUSTOMER_JOB_FEEDBACKS
+                        GROUP BY TECH_CODE
+                    ) f ON f.TECH_CODE = t.TECH_CODE
 
-                    FROM MTBL_TECH_OFFICERS t";
+                    -- Services
+                    LEFT JOIN (
+                        SELECT 
+                            COMPLETED_BY,
+                            COUNT(*) AS services
+                        FROM TBL_SCHEDULE_ACTIVITY
+                        GROUP BY COMPLETED_BY
+                    ) s ON s.COMPLETED_BY = t.TECH_CODE
 
-                    var result = connection.Query<TechnicianPerformenceDto>(getTechniciansQuery).ToList();
+                    -- Breakdowns
+                    LEFT JOIN (
+                        SELECT 
+                            TECH_CODE,
+                            COUNT(*) AS breakdowns
+                        FROM TBL_DAILY_JOBS
+                        GROUP BY TECH_CODE
+                    ) d ON d.TECH_CODE = t.TECH_CODE
+
+                    ORDER BY rating DESC";
+
+                    technicianPerformance = connection.Query<TechnicianPerformenceDto>(getTechniciansQuery).ToList();
                 }
                 return technicianPerformance;
             }
@@ -612,67 +650,695 @@ namespace ServvistaWebAppAPI.Services
         //    };
         //}
 
-        public List<OlderstDueDto> GetOldestDueJobs()
+        public List<OldestDueDto> GetOldestDueJobs()
         {
-            return new List<OlderstDueDto>
+            var results = new List<OldestDueDto>();
+
+            string query = @"
+            SELECT TOP 20
+                DJ_ID, 
+                SERIAL_NO, 
+                MACHINE_REF_NO, 
+                CUS_NAME, 
+                CUS_ADD1, 
+                CUS_ADD2, 
+                CUS_ADD3, 
+                CUS_CONTACT,
+                CUS_SMS_NO AS CUS_TEL_NO, 
+                TEAM_ID, 
+                TEAM_NAME, 
+                DJ_DATE, 
+                TECH_CODE, 
+                TECH_MOBILE, 
+                MACHINE_MODEL_ID,
+                MACHINE_MODEL_NAME, 
+                CUS_STATUS, 
+                JOB_STATUS, 
+                NOTE
+            FROM TBL_DAILY_JOBS
+            WHERE JOB_STATUS = 'TECH ALLOCATED'
+            AND DJ_DATE >= '2026-04-01'
+            AND DJ_DATE < DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
+            ORDER BY DJ_DATE ASC";
+
+            using (var connection = new SqlConnection(_connectionString))
             {
-                new OlderstDueDto
+                connection.Open();
+                using (var command = new SqlCommand(query, connection))
                 {
-                    jobId = "JOB12345",
-                    technicianName = "Sudesh",
-                    jobType = "Breakdown",
-                    location = "Colombo",
-                    daysLeft = "2"
-                },
-                new OlderstDueDto
-                {
-                    jobId = "JOB12346",
-                    technicianName = "Nimal",
-                    jobType = "Service",
-                    location = "Kandy",
-                    daysLeft = "5"
-                },
-                new OlderstDueDto
-                {
-                    jobId = "JOB12347",
-                    technicianName = "Kamal",
-                    jobType = "Breakdown",
-                    location = "Galle",
-                    daysLeft = "1"
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var dto = new OldestDueDto
+                            {
+                                DjId = reader["DJ_ID"].ToString(),
+                                SerialNo = reader["SERIAL_NO"].ToString(),
+                                MachineRefNo = reader["MACHINE_REF_NO"].ToString(),
+                                CustomerName = reader["CUS_NAME"].ToString(),
+                                CustomerAddress = CombineAddress(
+                                    reader["CUS_ADD1"].ToString(),
+                                    reader["CUS_ADD2"].ToString(),
+                                    reader["CUS_ADD3"].ToString()
+                                ),
+                                CustomerContact = reader["CUS_CONTACT"].ToString(),
+                                CustomerTelNo = reader["CUS_TEL_NO"].ToString(),
+                                TeamId = reader["TEAM_ID"].ToString(),
+                                TeamName = reader["TEAM_NAME"].ToString(),
+                                DjDate = Convert.ToDateTime(reader["DJ_DATE"]).ToString("yyyy-MM-dd"),
+                                TechCode = reader["TECH_CODE"].ToString(),
+                                TechMobile = reader["TECH_MOBILE"].ToString(),
+                                MachineModelId = reader["MACHINE_MODEL_ID"].ToString(),
+                                MachineModelName = reader["MACHINE_MODEL_NAME"].ToString(),
+                                CustomerStatus = reader["CUS_STATUS"].ToString(),
+                                JobStatus = reader["JOB_STATUS"].ToString(),
+                                Note = reader["NOTE"].ToString(),
+                                DaysOverdue = CalculateDaysOverdue(Convert.ToDateTime(reader["DJ_DATE"]))
+                            };
+
+                            results.Add(dto);
+                        }
+                    }
                 }
-            };
+            }
+
+            return results;
+        }
+
+        // Helper method to combine address fields
+        private string CombineAddress(string add1, string add2, string add3)
+        {
+            var addressParts = new[] { add1, add2, add3 }
+                .Where(a => !string.IsNullOrWhiteSpace(a) && a != "-")
+                .ToArray();
+
+            return string.Join(", ", addressParts);
+        }
+
+        // Helper method to calculate days overdue
+        private string CalculateDaysOverdue(DateTime djDate)
+        {
+            var daysOverdue = (DateTime.Now.Date - djDate.Date).Days;
+            return daysOverdue.ToString();
         }
 
         public List<WarrantyDetailsDto> GetWarrantyDetails()
         {
-            return new List<WarrantyDetailsDto>
-            {
-                new WarrantyDetailsDto
-                {
-                    erea = "Colombo",
-                    ns = 10,
-                    fs = 20,
-                    ma = 5,
-                    ex = 2
-                },
-                new WarrantyDetailsDto
-                {
-                    erea = "Kandy",
-                    ns = 15,
-                    fs = 25,
-                    ma = 8,
-                    ex = 3
-                },
-                new WarrantyDetailsDto
-                {
-                    erea = "Galle",
-                    ns = 8,
-                    fs = 18,
-                    ma = 4,
-                    ex = 1
-                }
-            };
+            var results = new List<WarrantyDetailsDto>();
 
+            string query = @"
+        SELECT 
+            TEAM,
+            COUNT(CASE WHEN CUS_STATUS = 'NS' THEN 1 END) AS NS_COUNT,
+            COUNT(CASE WHEN CUS_STATUS = 'MA' THEN 1 END) AS MA_COUNT,
+            COUNT(CASE WHEN CUS_STATUS = 'FS' THEN 1 END) AS FS_COUNT,
+            COUNT(CASE WHEN CUS_STATUS = 'EX' THEN 1 END) AS EX_COUNT,
+            COUNT(*) AS TOTAL_COUNT
+        FROM TBL_MACHINE_TRANSACTION
+        WHERE MACHINE_TYPE IN ('MFP', 'DCP')
+        AND YEAR(M_WARRANTY_END_DATE) = YEAR(GETDATE())
+        GROUP BY TEAM
+        ORDER BY TEAM";
+
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand(query, connection))
+                {
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var dto = new WarrantyDetailsDto
+                            {
+                                Area = reader["TEAM"] != DBNull.Value
+                                    ? reader["TEAM"].ToString()
+                                    : "Unknown",  // Handle NULL team values
+                                Ns = Convert.ToInt32(reader["NS_COUNT"]),
+                                Ma = Convert.ToInt32(reader["MA_COUNT"]),
+                                Fs = Convert.ToInt32(reader["FS_COUNT"]),
+                                Ex = Convert.ToInt32(reader["EX_COUNT"]),
+                                Total = Convert.ToInt32(reader["TOTAL_COUNT"])
+                            };
+
+                            results.Add(dto);
+                        }
+                    }
+                }
+            }
+
+            return results;
+        }
+
+
+        public List<TechnicianDetailsDto> GetTechnicianDetails()
+        {
+            var result = new List<TechnicianDetailsDto>();
+            string query = @"
+        SELECT 
+            -- Basic Info from MTBL_TECH_OFFICERS
+            t.TECH_CODE as techCode,
+            t.TECH_NAME as name,
+            t.EMAIL as email,
+            t.MOBILE_NO as phone,
+            t.AREA as zone,
+    
+            -- Job Statistics from TBL_DAILY_JOBS
+            ISNULL(j.allJobs, 0) as allJobs,
+            ISNULL(j.pendingJobs, 0) as pendingJobs,
+            CASE 
+                WHEN ISNULL(j.allJobs, 0) > 0 
+                THEN ROUND(CAST(ISNULL(j.completedJobs, 0) AS FLOAT) / j.allJobs * 100, 2)
+                ELSE 0 
+            END as jobPerformancePercentage,
+    
+            -- Service Statistics from TBL_SERVICE_SCEDULE_UPDATE
+            ISNULL(s.allServices, 0) as allServices,
+            ISNULL(s.pendingServices, 0) as pendingServices,
+            CASE 
+                WHEN ISNULL(s.allServices, 0) > 0 
+                THEN ROUND(CAST(ISNULL(s.completedServices, 0) AS FLOAT) / s.allServices * 100, 2)
+                ELSE 0 
+            END as servicePerformancePercentage
+        FROM MTBL_TECH_OFFICERS t
+        -- LEFT JOIN for Job Statistics
+        LEFT JOIN (
+            SELECT 
+                TECH_CODE,
+                COUNT(*) as allJobs,
+                SUM(CASE WHEN JOB_STATUS = 'TECH ALLOCATED' THEN 1 ELSE 0 END) as pendingJobs,
+                SUM(CASE WHEN JOB_STATUS IN ('COMPLETE', 'COMPLETED') THEN 1 ELSE 0 END) as completedJobs
+            FROM TBL_DAILY_JOBS
+            GROUP BY TECH_CODE
+        ) j ON t.TECH_CODE = j.TECH_CODE
+        -- LEFT JOIN for Service Statistics
+        LEFT JOIN (
+            SELECT 
+                TECH_CODE,
+                COUNT(DISTINCT T_ID) as allServices,
+                SUM(CASE WHEN SV1_STATUS = 'pending' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV2_STATUS = 'pending' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV3_STATUS = 'pending' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV4_STATUS = 'pending' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV5_STATUS = 'pending' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV6_STATUS = 'pending' THEN 1 ELSE 0 END) as pendingServices,
+                SUM(CASE WHEN SV1_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV2_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV3_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV4_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV5_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN SV6_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) as completedServices
+            FROM TBL_SERVICE_SCEDULE_UPDATE
+            GROUP BY TECH_CODE
+        ) s ON t.TECH_CODE = s.TECH_CODE
+        WHERE t.IS_ACTIVE = '1'
+        ORDER BY t.TECH_NAME";
+
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    connection.Open();
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var technician = new TechnicianDetailsDto
+                            {
+                                Id = reader["techCode"]?.ToString() ?? string.Empty,
+                                Name = reader["name"]?.ToString() ?? string.Empty,
+                                Email = reader["email"]?.ToString() ?? string.Empty,
+                                Phone = reader["phone"]?.ToString() ?? string.Empty,
+                                Zone = reader["zone"]?.ToString() ?? string.Empty,
+                                AllJobs = reader["allJobs"] != DBNull.Value ? Convert.ToInt32(reader["allJobs"]) : 0,
+                                PendingJobs = reader["pendingJobs"] != DBNull.Value ? Convert.ToInt32(reader["pendingJobs"]) : 0,
+                                JobPerformancePercentage = reader["jobPerformancePercentage"] != DBNull.Value ? Convert.ToDouble(reader["jobPerformancePercentage"]) : 0.0,
+                                AllServices = reader["allServices"] != DBNull.Value ? Convert.ToInt32(reader["allServices"]) : 0,
+                                PendingServices = reader["pendingServices"] != DBNull.Value ? Convert.ToInt32(reader["pendingServices"]) : 0,
+                                ServicePerformancePercentage = reader["servicePerformancePercentage"] != DBNull.Value ? Convert.ToDouble(reader["servicePerformancePercentage"]) : 0.0
+                            };
+
+                            result.Add(technician);
+                        }
+                    }
+                }
+            }
+
+            return result;
+
+        }
+
+        public List<TechnicianDetailsByTechCodeDto> GetTechnicianDetailsByTechCode(string techCode)
+        {
+            var result = new List<TechnicianDetailsByTechCodeDto>();
+            string query = @"
+        SELECT 
+            a.[TECH_CODE]                          AS techCode,
+            a.[TECH_NAME]                          AS name,
+            a.[EMAIL]                              AS email,
+            a.[MOBILE_NO]                          AS phone,
+            a.[AREA]                               AS zone,
+
+            -- ── JOB metrics (from TBL_DAILY_JOBS) ──────────────────────────────
+            ISNULL(j.ALL_JOBS,        0)           AS allJobs,
+            ISNULL(j.PENDING_JOBS,    0)           AS pendingJobs,
+            ISNULL(j.COMPLETE_JOBS,   0)           AS completeJobs,
+            ISNULL(j.STARTED_JOBS,    0)           AS startedJobs,
+            CASE 
+                WHEN ISNULL(j.ALL_JOBS, 0) = 0 THEN 0
+                ELSE ROUND(
+                    CAST(ISNULL(j.COMPLETE_JOBS, 0) AS FLOAT) 
+                    / CAST(j.ALL_JOBS AS FLOAT) * 100, 2)
+            END                                    AS jobPerformancePercentage,
+
+            -- ── SERVICE metrics (from TBL_SERVICE_SCEDULE_UPDATE) ───────────────
+            ISNULL(s.ALL_SERVICES,      0)         AS allServices,
+            ISNULL(s.COMPLETE_SERVICES, 0)         AS completeServices,
+            ISNULL(s.PENDING_SERVICES,  0)         AS pendingServices,
+            ISNULL(s.STARTED_SERVICES,  0)         AS startedServices,
+            CASE 
+                WHEN ISNULL(s.ALL_SERVICES, 0) = 0 THEN 0
+                ELSE ROUND(
+                    CAST(ISNULL(s.COMPLETE_SERVICES, 0) AS FLOAT) 
+                    / CAST(s.ALL_SERVICES AS FLOAT) * 100, 2)
+            END                                    AS servicePerformancePercentage
+
+        FROM MTBL_TECH_OFFICERS a
+
+        LEFT JOIN (
+            SELECT
+                [TECH_CODE],
+                SUM([JOB_COUNT]) AS ALL_JOBS,
+                SUM(CASE WHEN [JOB_STATUS] = 'TECH ALLOCATED'              THEN [JOB_COUNT] ELSE 0 END) AS PENDING_JOBS,
+                SUM(CASE WHEN [JOB_STATUS] IN ('COMPLETE','COMPLETED')     THEN [JOB_COUNT] ELSE 0 END) AS COMPLETE_JOBS,
+                SUM(CASE WHEN [JOB_STATUS] = 'started'                     THEN [JOB_COUNT] ELSE 0 END) AS STARTED_JOBS
+            FROM (
+                SELECT [TECH_CODE], [JOB_STATUS], COUNT(*) AS [JOB_COUNT]
+                FROM TBL_DAILY_JOBS
+                GROUP BY [TECH_CODE], [JOB_STATUS]
+            ) raw_jobs
+            GROUP BY [TECH_CODE]
+        ) j ON a.[TECH_CODE] = j.[TECH_CODE]
+
+        LEFT JOIN (
+            SELECT
+                [TECH_CODE],
+                COUNT(DISTINCT [T_ID]) AS ALL_SERVICES,
+                SUM(CASE WHEN [SV1_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV2_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV3_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV4_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV5_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV6_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END) AS COMPLETE_SERVICES,
+                SUM(CASE WHEN [SV1_STATUS] = 'pending' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV2_STATUS] = 'pending' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV3_STATUS] = 'pending' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV4_STATUS] = 'pending' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV5_STATUS] = 'pending' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV6_STATUS] = 'pending' THEN 1 ELSE 0 END) AS PENDING_SERVICES,
+                SUM(CASE WHEN [SV1_STATUS] = 'started' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV2_STATUS] = 'started' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV3_STATUS] = 'started' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV4_STATUS] = 'started' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV5_STATUS] = 'started' THEN 1 ELSE 0 END)
+              + SUM(CASE WHEN [SV6_STATUS] = 'started' THEN 1 ELSE 0 END) AS STARTED_SERVICES
+            FROM TBL_SERVICE_SCEDULE_UPDATE
+            GROUP BY [TECH_CODE]
+        ) s ON a.[TECH_CODE] = s.[TECH_CODE]
+
+        WHERE a.[IS_ACTIVE] = '1'
+          AND a.[TECH_CODE]  = @techCode";
+
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    result = connection.Query<TechnicianDetailsByTechCodeDto>(
+                        query,
+                        new { techCode }   // Dapper safely binds the parameter
+                    ).ToList();
+                }
+            }
+            catch (SqlException ex)
+            {
+                // Log SQL-specific errors
+                Console.WriteLine($"[SQL ERROR] GetTechnicianDetailsByTechCode: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Log general errors
+                Console.WriteLine($"[ERROR] GetTechnicianDetailsByTechCode: {ex.Message}");
+                throw;
+            }
+
+            return result;
+        }
+
+        public List<JobDto> GetTechnitianPendingJobs(string techCode)
+        {
+            var result = new List<JobDto>();
+            string query = @"
+        SELECT [COM_ID]
+              ,[DJ_ID]
+              ,[DJ_DATE]
+              ,[SERIAL_NO]
+              ,[MACHINE_REF_NO]
+              ,[TEAM_ID]
+              ,[TEAM_NAME]
+              ,[NOTE]
+              ,[INFORM_BY]
+              ,[CONTACT_TYPE]
+              ,[CUS_ADD1]
+              ,[CUS_ADD2]
+              ,[CUS_ADD3]
+              ,[CUS_CONTACT]
+              ,[CUS_TEL_NO]
+              ,[CUS_SMS_NO]
+              ,[MACHINE_MODEL_ID]
+              ,[MACHINE_MODEL_NAME]
+              ,[CUS_STATUS]
+              ,[CUS_TYPE]
+              ,[JOB_STATUS]
+              ,[CUS_ID]
+              ,[CUS_NAME]
+              ,[TECH_CODE]
+              ,[TECH_MOBILE]
+              ,[CR_BY]
+              ,[CR_DATE]
+              ,[COMPLETE_BY]
+              ,[COMPLETED_DATE]
+              ,[CANCELLED_BY]
+              ,[CANCELLED_DATE]
+              ,[SMS_DEL_REPORT_ID]
+              ,[SMS_DELIVERED]
+              ,[SMS_DELIVERED_DATETIME]
+              ,[IS_TECH_NOTIFIED]
+              ,[STARTED_BY]
+              ,[STARTED_DATE]
+              ,[CANCELLED_REASON]
+              ,[SOLUTION_CATEGORY]
+              ,[COMPLETE_SOLUTION]
+              ,[RECALL_ID]
+              ,[START_WORK_NOTE]
+          FROM TBL_DAILY_JOBS where TECH_CODE = @techCode AND JOB_STATUS = 'TECH ALLOCATED'
+        ";
+
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    result = connection.Query<JobDto>(
+                        query,
+                        new { techCode }   // Dapper safely binds the parameter
+                    ).ToList();
+                }
+            }
+            catch (SqlException ex)
+            {
+                // Log SQL-specific errors
+                Console.WriteLine($"[SQL ERROR] GetTechnitianPendingJobs: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Log general errors
+                Console.WriteLine($"[ERROR] GetTechnitianPendingJobs: {ex.Message}");
+                throw;
+            }
+
+            return result;
+        }
+
+        public List<ServiceScheduleDto> GetTechnicianPendingServices(string techCode, string firstday, string lastday)
+        {
+            var result = new List<ServiceScheduleDto>();
+            DateTime fromDate = DateTime.Parse(firstday);
+            DateTime toDate = DateTime.Parse(lastday);
+
+
+            string query = @"
+                SELECT 
+                T_ID,
+                COM_ID,
+                SERIAL_NO,
+                SERVICE_DATE,
+                TECH_CODE,
+                TECH_NAME,
+                MACHINE_REF,
+                CUS_ID,
+                CUS_NAME,
+
+                SV1_STATUS,
+                SV2_STATUS,
+                SV3_STATUS,
+                SV4_STATUS,
+                SV5_STATUS,
+                SV6_STATUS,
+
+                EXPT_SV1,
+                EXPT_SV2,
+                EXPT_SV3,
+                EXPT_SV4,
+                EXPT_SV5,
+                EXPT_SV6
+
+            FROM TBL_SERVICE_SCEDULE_UPDATE
+
+            WHERE TECH_CODE = @techCode
+            AND
+            (
+                (
+                    (SV1_STATUS IS NULL OR SV1_STATUS = '')
+                    AND EXPT_SV1 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    (SV2_STATUS IS NULL OR SV2_STATUS = '')
+                    AND EXPT_SV2 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    (SV3_STATUS IS NULL OR SV3_STATUS = '')
+                    AND EXPT_SV3 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    (SV4_STATUS IS NULL OR SV4_STATUS = '')
+                    AND EXPT_SV4 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    (SV5_STATUS IS NULL OR SV5_STATUS = '')
+                    AND EXPT_SV5 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    (SV6_STATUS IS NULL OR SV6_STATUS = '')
+                    AND EXPT_SV6 BETWEEN @fromDate AND @toDate
+                )
+            )
+
+            ORDER BY SERVICE_DATE DESC;
+        ";
+
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    result = connection.Query<ServiceScheduleDto>(
+                        query,
+                        new { techCode, fromDate, toDate }
+                    ).ToList();
+                }
+            }
+            catch (SqlException ex)
+            {
+                // Log SQL-specific errors
+                Console.WriteLine($"[SQL ERROR] Pending Services: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Log general errors
+                Console.WriteLine($"[ERROR] Pending Services: {ex.Message}");
+                throw;
+            }
+
+            return result;
+        }
+
+        public List<JobDto> GetTechnitianAllJobs(string techCode)
+        {
+            var result = new List<JobDto>();
+            string query = @"
+        SELECT [COM_ID]
+              ,[DJ_ID]
+              ,[DJ_DATE]
+              ,[SERIAL_NO]
+              ,[MACHINE_REF_NO]
+              ,[TEAM_ID]
+              ,[TEAM_NAME]
+              ,[NOTE]
+              ,[INFORM_BY]
+              ,[CONTACT_TYPE]
+              ,[CUS_ADD1]
+              ,[CUS_ADD2]
+              ,[CUS_ADD3]
+              ,[CUS_CONTACT]
+              ,[CUS_TEL_NO]
+              ,[CUS_SMS_NO]
+              ,[MACHINE_MODEL_ID]
+              ,[MACHINE_MODEL_NAME]
+              ,[CUS_STATUS]
+              ,[CUS_TYPE]
+              ,[JOB_STATUS]
+              ,[CUS_ID]
+              ,[CUS_NAME]
+              ,[TECH_CODE]
+              ,[TECH_MOBILE]
+              ,[CR_BY]
+              ,[CR_DATE]
+              ,[COMPLETE_BY]
+              ,[COMPLETED_DATE]
+              ,[CANCELLED_BY]
+              ,[CANCELLED_DATE]
+              ,[SMS_DEL_REPORT_ID]
+              ,[SMS_DELIVERED]
+              ,[SMS_DELIVERED_DATETIME]
+              ,[IS_TECH_NOTIFIED]
+              ,[STARTED_BY]
+              ,[STARTED_DATE]
+              ,[CANCELLED_REASON]
+              ,[SOLUTION_CATEGORY]
+              ,[COMPLETE_SOLUTION]
+              ,[RECALL_ID]
+              ,[START_WORK_NOTE]
+          FROM TBL_DAILY_JOBS where TECH_CODE = @techCode
+        ";
+
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    result = connection.Query<JobDto>(
+                        query,
+                        new { techCode }   // Dapper safely binds the parameter
+                    ).ToList();
+                }
+            }
+            catch (SqlException ex)
+            {
+                // Log SQL-specific errors
+                Console.WriteLine($"[SQL ERROR] GetTechnitianPendingJobs: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Log general errors
+                Console.WriteLine($"[ERROR] GetTechnitianPendingJobs: {ex.Message}");
+                throw;
+            }
+
+            return result;
+        }
+
+        public List<ServiceScheduleDto> GetTechnicianAllServices(string techCode, string firstday, string lastday)
+        {
+            var result = new List<ServiceScheduleDto>();
+            DateTime fromDate = DateTime.Parse(firstday);
+            DateTime toDate = DateTime.Parse(lastday);
+
+
+            string query = @"
+                SELECT 
+                T_ID,
+                COM_ID,
+                SERIAL_NO,
+                SERVICE_DATE,
+                TECH_CODE,
+                TECH_NAME,
+                MACHINE_REF,
+                CUS_ID,
+                CUS_NAME,
+
+                SV1_STATUS,
+                SV2_STATUS,
+                SV3_STATUS,
+                SV4_STATUS,
+                SV5_STATUS,
+                SV6_STATUS,
+
+                EXPT_SV1,
+                EXPT_SV2,
+                EXPT_SV3,
+                EXPT_SV4,
+                EXPT_SV5,
+                EXPT_SV6
+
+            FROM TBL_SERVICE_SCEDULE_UPDATE
+
+
+            WHERE TECH_CODE = @techCode
+            AND
+            (
+                (
+                    EXPT_SV1 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    EXPT_SV2 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    EXPT_SV3 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    EXPT_SV4 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    EXPT_SV5 BETWEEN @fromDate AND @toDate
+                )
+                OR
+                (
+                    EXPT_SV6 BETWEEN @fromDate AND @toDate
+                )
+            )
+
+            ORDER BY SERVICE_DATE DESC;
+        ";
+
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    result = connection.Query<ServiceScheduleDto>(
+                        query,
+                        new { techCode, fromDate, toDate }
+                    ).ToList();
+                }
+            }
+            catch (SqlException ex)
+            {
+                // Log SQL-specific errors
+                Console.WriteLine($"[SQL ERROR] Pending Services: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Log general errors
+                Console.WriteLine($"[ERROR] Pending Services: {ex.Message}");
+                throw;
+            }
+
+            return result;
 
         }
     }

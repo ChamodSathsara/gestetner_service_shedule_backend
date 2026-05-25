@@ -14,7 +14,16 @@ namespace ServvistaWebAppAPI.Repositories
         List<LastYearJobPerformanceDto> GetLastWeekJobPerformance();
         List<TechnicianPerformenceDto> GetTechniciansPerformence();
 
-        List<OlderstDueDto> GetOldestDueJobs();
+        List<OldestDueDto> GetOldestDueJobs();
         List<WarrantyDetailsDto> GetWarrantyDetails();
+
+        List<TechnicianDetailsDto> GetTechnicianDetails();
+        List<TechnicianDetailsByTechCodeDto> GetTechnicianDetailsByTechCode(string techCode);
+
+        List<JobDto> GetTechnitianPendingJobs(string techCode);
+        List<ServiceScheduleDto> GetTechnicianPendingServices(string techCode, string firstday, string lastday);
+        List<JobDto> GetTechnitianAllJobs(string techCode);
+
+        List<ServiceScheduleDto> GetTechnicianAllServices(string techCode, string firstday, string lastday);
     }
 }

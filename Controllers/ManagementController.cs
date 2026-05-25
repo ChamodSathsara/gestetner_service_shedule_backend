@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.VisualBasic;
 using ServvistaWebAppAPI.Repositories;
 using ServvistaWebAppAPI.Services;
 
@@ -173,5 +174,101 @@ namespace ServvistaWebAppAPI.Controllers
 
         }
 
+
+        [Authorize]
+        [HttpGet("getTechnitianDetails")]
+        public IActionResult GetTechnitianDetails()
+        {
+            try
+            {
+                var data = _managementService.GetTechnicianDetails();
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+
+        }
+
+        [Authorize]
+        [HttpGet("getTechnitianDetailsByTechCode")]
+        public IActionResult GetTechnitianDetailsByTechCode(string techCode)
+        {
+            try
+            {
+                var data = _managementService.GetTechnicianDetailsByTechCode(techCode);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+
+        }
+
+        [Authorize]
+        [HttpGet("getTechnitianPendingJobs")]
+        public IActionResult GetTechnitianPendingJobs(string techCode)
+        {
+            try
+            {
+                var data = _managementService.GetTechnitianPendingJobs(techCode);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+
+        }
+
+        [Authorize]
+        [HttpGet("getTechnitianPendingServices")]
+        public IActionResult GetTechnitianPendingServices(string techCode , string firstday, string lastday)
+        {
+            try
+            {
+                var data = _managementService.GetTechnicianPendingServices(techCode , firstday, lastday);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+
+        }
+
+        [Authorize]
+        [HttpGet("getTechnitianAllJobs")]
+        public IActionResult GetTechnitianAllJobs(string techCode)
+        {
+            try
+            {
+                var data = _managementService.GetTechnitianAllJobs(techCode);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+
+        }
+
+        [Authorize]
+        [HttpGet("getTechnitianAllServices")]
+        public IActionResult GetTechnitianAllServices(string techCode, string firstday, string lastday)
+        {
+            try
+            {
+                var data = _managementService.GetTechnicianAllServices(techCode, firstday, lastday);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+
+        }
     }
 }

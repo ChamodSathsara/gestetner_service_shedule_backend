@@ -44,9 +44,11 @@ namespace ServvistaWebAppAPI.Classes
                 case "001":
                     _connectionString = _config.GetConnectionString("DefaultConnection");
                     break;
-                    case "002":
+                    
+                case "002":
                         _connectionString = _config.GetConnectionString("FintekConnection");
                     break;
+
                 default:
                     break;
             }

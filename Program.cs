@@ -56,6 +56,7 @@ builder.Services.AddScoped<IServiceSchedule, ServiceScheduleService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IManagementRepository, ManagementServices>();
+builder.Services.AddScoped<IReportRepository, ReportService>();
 
 // --------------------
 // Authentication (JWT + SignalR)
