@@ -25,18 +25,19 @@ namespace ServvistaWebAppAPI.Services
             string jobCountQuery = @"
             SELECT COUNT(*) 
             FROM TBL_DAILY_JOBS
-            WHERE DJ_DATE >= DATEADD(DAY, -30, GETDATE())";
+            WHERE DJ_DATE >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+              AND DJ_DATE <  DATEFROMPARTS(YEAR(GETDATE()) + 1, 1, 1)";
 
             string successCountQuery = @"
             SELECT COUNT(*) 
             FROM TBL_DAILY_JOBS 
             WHERE (JOB_STATUS = 'COMPLETED' OR JOB_STATUS = 'COMPLETE')
-            AND DJ_DATE >= DATEADD(DAY, -30, GETDATE())";
+              AND DJ_DATE >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+              AND DJ_DATE <  DATEFROMPARTS(YEAR(GETDATE()) + 1, 1, 1)";
 
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-
                 int jobCount = 0;
                 int successCount = 0;
 
@@ -44,14 +45,12 @@ namespace ServvistaWebAppAPI.Services
                 {
                     jobCount = (int)cmd.ExecuteScalar();
                 }
-
                 using (var cmd = new SqlCommand(successCountQuery, connection))
                 {
                     successCount = (int)cmd.ExecuteScalar();
                 }
 
                 double jobRate = jobCount > 0 ? (double)successCount / jobCount * 100 : 0;
-
                 return new JobCountAndRateDto
                 {
                     JobCount = jobCount,
@@ -64,59 +63,46 @@ namespace ServvistaWebAppAPI.Services
         public JobCountAndRateDto GetServiceCountAndRate()
         {
             string servicesCountQuery = @"
-                SELECT COUNT(*)
-                FROM TBL_SERVICE_SCEDULE_UPDATE
-                WHERE
-                    (
-                        EXPT_SV1 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
-                    )
-                    OR
-                    (
-                        EXPT_SV2 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
-                    )
-                    OR
-                    (
-                        EXPT_SV3 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
-                    )
-                    OR
-                    (
-                        EXPT_SV4 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
-                    )
-                    OR
-                    (
-                        EXPT_SV5 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
-                    )
-                    OR
-                    (
-                        EXPT_SV6 BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
-                    );
-                    ";
+            SELECT 
+                COUNT(*) AS TotalExpectedVisits
+            FROM [DB_A67CC4_Servvistagcp].[dbo].[TBL_SERVICE_SCEDULE_UPDATE] t
+            CROSS APPLY (VALUES
+                (t.EXPT_SV1),
+                (t.EXPT_SV2),
+                (t.EXPT_SV3),
+                (t.EXPT_SV4),
+                (t.EXPT_SV5),
+                (t.EXPT_SV6)
+            ) V(ExptDate)
+            WHERE V.ExptDate IS NOT NULL
+              AND V.ExptDate >= DATEFROMPARTS(YEAR(GETDATE()),1,1)
+              AND V.ExptDate <  DATEFROMPARTS(YEAR(GETDATE())+1,1,1);
+        ";
 
             string successCountQuery = @"
-                SELECT COUNT(*) AS completeRow
-                FROM TBL_SERVICE_SCEDULE_UPDATE s
-                INNER JOIN MTBL_CUSTOMER_MASTER c
-                    ON c.CUS_CODE = s.CUS_ID
-                CROSS APPLY
-                (
-                    VALUES
-                        ('EXPT_SV1', s.EXPT_SV1, s.SV1),
-                        ('EXPT_SV2', s.EXPT_SV2, s.SV2),
-                        ('EXPT_SV3', s.EXPT_SV3, s.SV3),
-                        ('EXPT_SV4', s.EXPT_SV4, s.SV4),
-                        ('EXPT_SV5', s.EXPT_SV5, s.SV5),
-                        ('EXPT_SV6', s.EXPT_SV6, s.SV6)
-                ) v (VisitNo, ExpectedDate, ActualVisit)
-                WHERE v.ExpectedDate IS NOT NULL
-                  AND v.ExpectedDate >= DATEADD(DAY, -30, GETDATE())
-                  AND v.ActualVisit IS NOT NULL;
-            ";
-
+        SELECT COUNT(*) AS completeRow
+        FROM TBL_SERVICE_SCEDULE_UPDATE s
+        INNER JOIN MTBL_CUSTOMER_MASTER c
+            ON c.CUS_CODE = s.CUS_ID
+        CROSS APPLY
+        (
+            VALUES
+                ('EXPT_SV1', s.EXPT_SV1, s.SV1),
+                ('EXPT_SV2', s.EXPT_SV2, s.SV2),
+                ('EXPT_SV3', s.EXPT_SV3, s.SV3),
+                ('EXPT_SV4', s.EXPT_SV4, s.SV4),
+                ('EXPT_SV5', s.EXPT_SV5, s.SV5),
+                ('EXPT_SV6', s.EXPT_SV6, s.SV6)
+        ) v (VisitNo, ExpectedDate, ActualVisit)
+        WHERE v.ExpectedDate IS NOT NULL
+          AND v.ExpectedDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+          AND v.ExpectedDate <  DATEFROMPARTS(YEAR(GETDATE()) + 1, 1, 1)
+          AND v.ActualVisit IS NOT NULL;
+    ";
 
             using (var connection = new SqlConnection(_connectionString))
             {
                 connection.Open();
-
                 int jobCount = 0;
                 int successCount = 0;
 
@@ -124,14 +110,12 @@ namespace ServvistaWebAppAPI.Services
                 {
                     jobCount = (int)cmd.ExecuteScalar();
                 }
-
                 using (var cmd = new SqlCommand(successCountQuery, connection))
                 {
                     successCount = (int)cmd.ExecuteScalar();
                 }
 
                 double jobRate = jobCount > 0 ? (double)successCount / jobCount * 100 : 0;
-
                 return new JobCountAndRateDto
                 {
                     JobCount = jobCount,
@@ -358,27 +342,28 @@ namespace ServvistaWebAppAPI.Services
         public List<CompleteAndPendingPercentageDto> GetCompleteAndPendingServicesPercentage()
         {
             string query = @"
-            SELECT
-                COUNT(*) AS total,
-                SUM(CASE WHEN v.ActualVisit IS NOT NULL THEN 1 ELSE 0 END) AS completed,
-                SUM(CASE WHEN v.ActualVisit IS NULL     THEN 1 ELSE 0 END) AS pending
-            FROM TBL_SERVICE_SCEDULE_UPDATE s WITH (NOLOCK)
-            INNER JOIN MTBL_CUSTOMER_MASTER c WITH (NOLOCK)
-                ON c.CUS_CODE = s.CUS_ID
-            CROSS APPLY
-            (
-                VALUES
-                    ('EXPT_SV1', s.EXPT_SV1, s.SV1),
-                    ('EXPT_SV2', s.EXPT_SV2, s.SV2),
-                    ('EXPT_SV3', s.EXPT_SV3, s.SV3),
-                    ('EXPT_SV4', s.EXPT_SV4, s.SV4),
-                    ('EXPT_SV5', s.EXPT_SV5, s.SV5),
-                    ('EXPT_SV6', s.EXPT_SV6, s.SV6)
-            ) v (VisitNo, ExpectedDate, ActualVisit)
-            WHERE v.ExpectedDate IS NOT NULL";
+    SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN v.ActualVisit IS NOT NULL THEN 1 ELSE 0 END) AS completed,
+        SUM(CASE WHEN v.ActualVisit IS NULL     THEN 1 ELSE 0 END) AS pending
+    FROM TBL_SERVICE_SCEDULE_UPDATE s WITH (NOLOCK)
+    INNER JOIN MTBL_CUSTOMER_MASTER c WITH (NOLOCK)
+        ON c.CUS_CODE = s.CUS_ID
+    CROSS APPLY
+    (
+        VALUES
+            ('EXPT_SV1', s.EXPT_SV1, s.SV1),
+            ('EXPT_SV2', s.EXPT_SV2, s.SV2),
+            ('EXPT_SV3', s.EXPT_SV3, s.SV3),
+            ('EXPT_SV4', s.EXPT_SV4, s.SV4),
+            ('EXPT_SV5', s.EXPT_SV5, s.SV5),
+            ('EXPT_SV6', s.EXPT_SV6, s.SV6)
+    ) v (VisitNo, ExpectedDate, ActualVisit)
+    WHERE v.ExpectedDate IS NOT NULL
+      AND v.ExpectedDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+      AND v.ExpectedDate <  DATEFROMPARTS(YEAR(GETDATE()) + 1, 1, 1)";
 
             Console.WriteLine("[GetCompleteAndPendingServicesPercentage] Starting...");
-
             try
             {
                 using (var connection = new SqlConnection(_connectionString))
@@ -391,7 +376,6 @@ namespace ServvistaWebAppAPI.Services
                     using (var reader = cmd.ExecuteReader())
                     {
                         Console.WriteLine("[GetCompleteAndPendingServicesPercentage] Query executed.");
-
                         if (reader.Read())
                         {
                             int total = reader.GetInt32(reader.GetOrdinal("total"));
@@ -403,15 +387,14 @@ namespace ServvistaWebAppAPI.Services
                             int completedPct = total > 0 ? (int)Math.Round((double)completed * 100 / total) : 0;
                             int pendingPct = total > 0 ? (int)Math.Round((double)pending * 100 / total) : 0;
 
-
                             Console.WriteLine($"[GetCompleteAndPendingServicesPercentage] Percentages => Completed: {completedPct}%, Pending: {pendingPct}%");
 
                             return new List<CompleteAndPendingPercentageDto>
-                            {
-                                new CompleteAndPendingPercentageDto { name = "Completed", value = completedPct },
-                                new CompleteAndPendingPercentageDto { name = "Started",   value = 0            },
-                                new CompleteAndPendingPercentageDto { name = "Pending",   value = pendingPct   }
-                            };
+                    {
+                        new CompleteAndPendingPercentageDto { name = "Completed", value = completedPct },
+                        new CompleteAndPendingPercentageDto { name = "Started",   value = 0            },
+                        new CompleteAndPendingPercentageDto { name = "Pending",   value = pendingPct   }
+                    };
                         }
                         else
                         {
@@ -436,11 +419,11 @@ namespace ServvistaWebAppAPI.Services
 
             Console.WriteLine("[GetCompleteAndPendingServicesPercentage] Returning fallback zeros.");
             return new List<CompleteAndPendingPercentageDto>
-            {
-                new CompleteAndPendingPercentageDto { name = "Completed", value = 0 },
-                new CompleteAndPendingPercentageDto { name = "Started",   value = 0 },
-                new CompleteAndPendingPercentageDto { name = "Pending",   value = 0 }
-            };
+    {
+        new CompleteAndPendingPercentageDto { name = "Completed", value = 0 },
+        new CompleteAndPendingPercentageDto { name = "Started",   value = 0 },
+        new CompleteAndPendingPercentageDto { name = "Pending",   value = 0 }
+    };
         }
 
         public List<LastYearJobPerformanceDto> GetLastWeekJobPerformance()
@@ -795,64 +778,159 @@ namespace ServvistaWebAppAPI.Services
         {
             var result = new List<TechnicianDetailsDto>();
             string query = @"
-        SELECT 
-            -- Basic Info from MTBL_TECH_OFFICERS
-            t.TECH_CODE as techCode,
-            t.TECH_NAME as name,
-            t.EMAIL as email,
-            t.MOBILE_NO as phone,
-            t.AREA as zone,
+            
+             SELECT 
+    -- Basic Info from MTBL_TECH_OFFICERS
+    t.TECH_CODE as techCode,
+    t.TECH_NAME as name,
+    t.EMAIL as email,
+    t.MOBILE_NO as phone,
+    t.AREA as zone,
     
-            -- Job Statistics from TBL_DAILY_JOBS
-            ISNULL(j.allJobs, 0) as allJobs,
-            ISNULL(j.pendingJobs, 0) as pendingJobs,
-            CASE 
-                WHEN ISNULL(j.allJobs, 0) > 0 
-                THEN ROUND(CAST(ISNULL(j.completedJobs, 0) AS FLOAT) / j.allJobs * 100, 2)
-                ELSE 0 
-            END as jobPerformancePercentage,
+    -- Job Statistics from TBL_DAILY_JOBS
+    ISNULL(j.allJobs, 0) as allJobs,
+    ISNULL(j.pendingJobs, 0) as pendingJobs,
+    CASE 
+        WHEN ISNULL(j.allJobs, 0) > 0 
+        THEN ROUND(
+            CAST(ISNULL(j.completedJobs, 0) AS FLOAT) / j.allJobs * 100, 
+            2
+        )
+        ELSE 0 
+    END as jobPerformancePercentage,
     
-            -- Service Statistics from TBL_SERVICE_SCEDULE_UPDATE
-            ISNULL(s.allServices, 0) as allServices,
-            ISNULL(s.pendingServices, 0) as pendingServices,
+    -- Service Statistics from TBL_SERVICE_SCEDULE_UPDATE
+    ISNULL(s.allServices, 0) as allServices,
+    ISNULL(s.pendingServices, 0) as pendingServices,
+    CASE 
+        WHEN ISNULL(s.allServices, 0) > 0 
+        THEN ROUND(
+            CAST(ISNULL(s.completedServices, 0) AS FLOAT) / s.allServices * 100, 
+            2
+        )
+        ELSE 0 
+    END as servicePerformancePercentage
+
+FROM MTBL_TECH_OFFICERS t
+
+-- =========================================
+-- JOB STATISTICS (LAST YEAR FILTER)
+-- FILTER USING CR_DATE
+-- =========================================
+LEFT JOIN (
+    SELECT 
+        TECH_CODE,
+
+        COUNT(*) as allJobs,
+
+        SUM(
             CASE 
-                WHEN ISNULL(s.allServices, 0) > 0 
-                THEN ROUND(CAST(ISNULL(s.completedServices, 0) AS FLOAT) / s.allServices * 100, 2)
+                WHEN JOB_STATUS = 'TECH ALLOCATED' 
+                THEN 1 
                 ELSE 0 
-            END as servicePerformancePercentage
-        FROM MTBL_TECH_OFFICERS t
-        -- LEFT JOIN for Job Statistics
-        LEFT JOIN (
-            SELECT 
-                TECH_CODE,
-                COUNT(*) as allJobs,
-                SUM(CASE WHEN JOB_STATUS = 'TECH ALLOCATED' THEN 1 ELSE 0 END) as pendingJobs,
-                SUM(CASE WHEN JOB_STATUS IN ('COMPLETE', 'COMPLETED') THEN 1 ELSE 0 END) as completedJobs
-            FROM TBL_DAILY_JOBS
-            GROUP BY TECH_CODE
-        ) j ON t.TECH_CODE = j.TECH_CODE
-        -- LEFT JOIN for Service Statistics
-        LEFT JOIN (
-            SELECT 
-                TECH_CODE,
-                COUNT(DISTINCT T_ID) as allServices,
-                SUM(CASE WHEN SV1_STATUS = 'pending' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV2_STATUS = 'pending' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV3_STATUS = 'pending' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV4_STATUS = 'pending' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV5_STATUS = 'pending' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV6_STATUS = 'pending' THEN 1 ELSE 0 END) as pendingServices,
-                SUM(CASE WHEN SV1_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV2_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV3_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV4_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV5_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) +
-                SUM(CASE WHEN SV6_STATUS = 'COMPLETED' THEN 1 ELSE 0 END) as completedServices
-            FROM TBL_SERVICE_SCEDULE_UPDATE
-            GROUP BY TECH_CODE
-        ) s ON t.TECH_CODE = s.TECH_CODE
-        WHERE t.IS_ACTIVE = '1'
-        ORDER BY t.TECH_NAME";
+            END
+        ) as pendingJobs,
+
+        SUM(
+            CASE 
+                WHEN JOB_STATUS IN ('COMPLETE', 'COMPLETED') 
+                THEN 1 
+                ELSE 0 
+            END
+        ) as completedJobs
+
+    FROM TBL_DAILY_JOBS
+
+    WHERE CR_DATE >= DATEADD(YEAR, -1, GETDATE())
+
+    GROUP BY TECH_CODE
+
+) j ON t.TECH_CODE = j.TECH_CODE
+
+
+-- =========================================
+-- SERVICE STATISTICS (LAST YEAR FILTER)
+-- FILTER USING EXPT_SV1 - EXPT_SV6
+-- =========================================
+LEFT JOIN (
+    SELECT 
+        TECH_CODE,
+
+        COUNT(DISTINCT T_ID) as allServices,
+
+        -- Pending Services
+        SUM(CASE WHEN SV1_STATUS = 'pending'
+                  AND EXPT_SV1 >= DATEADD(YEAR, -1, GETDATE())
+                 THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV2_STATUS = 'pending'
+                    AND EXPT_SV2 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV3_STATUS = 'pending'
+                    AND EXPT_SV3 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV4_STATUS = 'pending'
+                    AND EXPT_SV4 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV5_STATUS = 'pending'
+                    AND EXPT_SV5 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV6_STATUS = 'pending'
+                    AND EXPT_SV6 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        as pendingServices,
+
+        -- Completed Services
+        SUM(CASE WHEN SV1_STATUS = 'COMPLETED'
+                  AND EXPT_SV1 >= DATEADD(YEAR, -1, GETDATE())
+                 THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV2_STATUS = 'COMPLETED'
+                    AND EXPT_SV2 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV3_STATUS = 'COMPLETED'
+                    AND EXPT_SV3 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV4_STATUS = 'COMPLETED'
+                    AND EXPT_SV4 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV5_STATUS = 'COMPLETED'
+                    AND EXPT_SV5 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        + SUM(CASE WHEN SV6_STATUS = 'COMPLETED'
+                    AND EXPT_SV6 >= DATEADD(YEAR, -1, GETDATE())
+                   THEN 1 ELSE 0 END)
+
+        as completedServices
+
+    FROM TBL_SERVICE_SCEDULE_UPDATE
+
+    WHERE
+        EXPT_SV1 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV2 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV3 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV4 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV5 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV6 >= DATEADD(YEAR, -1, GETDATE())
+
+    GROUP BY TECH_CODE
+
+) s ON t.TECH_CODE = s.TECH_CODE
+
+WHERE t.IS_ACTIVE = '1'
+
+ORDER BY t.TECH_NAME
+
+            ";
 
             using (SqlConnection connection = new SqlConnection(_connectionString))
             {
@@ -893,81 +971,94 @@ namespace ServvistaWebAppAPI.Services
             var result = new List<TechnicianDetailsByTechCodeDto>();
             string query = @"
         SELECT 
-            a.[TECH_CODE]                          AS techCode,
-            a.[TECH_NAME]                          AS name,
-            a.[EMAIL]                              AS email,
-            a.[MOBILE_NO]                          AS phone,
-            a.[AREA]                               AS zone,
+    a.[TECH_CODE]                          AS techCode,
+    a.[TECH_NAME]                          AS name,
+    a.[EMAIL]                              AS email,
+    a.[MOBILE_NO]                          AS phone,
+    a.[AREA]                               AS zone,
+    -- ── JOB metrics (from TBL_DAILY_JOBS) ──────────────────────────────
+    ISNULL(j.ALL_JOBS,        0)           AS allJobs,
+    ISNULL(j.PENDING_JOBS,    0)           AS pendingJobs,
+    ISNULL(j.COMPLETE_JOBS,   0)           AS completeJobs,
+    ISNULL(j.STARTED_JOBS,    0)           AS startedJobs,
+    CASE 
+        WHEN ISNULL(j.ALL_JOBS, 0) = 0 THEN 0
+        ELSE ROUND(
+            CAST(ISNULL(j.COMPLETE_JOBS, 0) AS FLOAT) 
+            / CAST(j.ALL_JOBS AS FLOAT) * 100, 2)
+    END                                    AS jobPerformancePercentage,
+    -- ── SERVICE metrics (from TBL_SERVICE_SCEDULE_UPDATE) ───────────────
+    ISNULL(s.ALL_SERVICES,      0)         AS allServices,
+    ISNULL(s.COMPLETE_SERVICES, 0)         AS completeServices,
+    ISNULL(s.PENDING_SERVICES,  0)         AS pendingServices,
+    ISNULL(s.STARTED_SERVICES,  0)         AS startedServices,
+    CASE 
+        WHEN ISNULL(s.ALL_SERVICES, 0) = 0 THEN 0
+        ELSE ROUND(
+            CAST(ISNULL(s.COMPLETE_SERVICES, 0) AS FLOAT) 
+            / CAST(s.ALL_SERVICES AS FLOAT) * 100, 2)
+    END                                    AS servicePerformancePercentage
+FROM MTBL_TECH_OFFICERS a
 
-            -- ── JOB metrics (from TBL_DAILY_JOBS) ──────────────────────────────
-            ISNULL(j.ALL_JOBS,        0)           AS allJobs,
-            ISNULL(j.PENDING_JOBS,    0)           AS pendingJobs,
-            ISNULL(j.COMPLETE_JOBS,   0)           AS completeJobs,
-            ISNULL(j.STARTED_JOBS,    0)           AS startedJobs,
-            CASE 
-                WHEN ISNULL(j.ALL_JOBS, 0) = 0 THEN 0
-                ELSE ROUND(
-                    CAST(ISNULL(j.COMPLETE_JOBS, 0) AS FLOAT) 
-                    / CAST(j.ALL_JOBS AS FLOAT) * 100, 2)
-            END                                    AS jobPerformancePercentage,
+-- =========================================
+-- JOB STATISTICS (LAST YEAR FILTER)
+-- FILTER USING CR_DATE
+-- =========================================
+LEFT JOIN (
+    SELECT
+        [TECH_CODE],
+        SUM([JOB_COUNT]) AS ALL_JOBS,
+        SUM(CASE WHEN [JOB_STATUS] = 'TECH ALLOCATED'              THEN [JOB_COUNT] ELSE 0 END) AS PENDING_JOBS,
+        SUM(CASE WHEN [JOB_STATUS] IN ('COMPLETE','COMPLETED')     THEN [JOB_COUNT] ELSE 0 END) AS COMPLETE_JOBS,
+        SUM(CASE WHEN [JOB_STATUS] = 'started'                     THEN [JOB_COUNT] ELSE 0 END) AS STARTED_JOBS
+    FROM (
+        SELECT [TECH_CODE], [JOB_STATUS], COUNT(*) AS [JOB_COUNT]
+        FROM TBL_DAILY_JOBS
+        WHERE CR_DATE >= DATEADD(YEAR, -1, GETDATE())   -- ← last year filter
+        GROUP BY [TECH_CODE], [JOB_STATUS]
+    ) raw_jobs
+    GROUP BY [TECH_CODE]
+) j ON a.[TECH_CODE] = j.[TECH_CODE]
 
-            -- ── SERVICE metrics (from TBL_SERVICE_SCEDULE_UPDATE) ───────────────
-            ISNULL(s.ALL_SERVICES,      0)         AS allServices,
-            ISNULL(s.COMPLETE_SERVICES, 0)         AS completeServices,
-            ISNULL(s.PENDING_SERVICES,  0)         AS pendingServices,
-            ISNULL(s.STARTED_SERVICES,  0)         AS startedServices,
-            CASE 
-                WHEN ISNULL(s.ALL_SERVICES, 0) = 0 THEN 0
-                ELSE ROUND(
-                    CAST(ISNULL(s.COMPLETE_SERVICES, 0) AS FLOAT) 
-                    / CAST(s.ALL_SERVICES AS FLOAT) * 100, 2)
-            END                                    AS servicePerformancePercentage
+-- =========================================
+-- SERVICE STATISTICS (LAST YEAR FILTER)
+-- FILTER USING EXPT_SV1 - EXPT_SV6
+-- =========================================
+LEFT JOIN (
+    SELECT
+        [TECH_CODE],
+        COUNT(DISTINCT [T_ID]) AS ALL_SERVICES,
+        SUM(CASE WHEN [SV1_STATUS] = 'COMPLETED' AND EXPT_SV1 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV2_STATUS] = 'COMPLETED' AND EXPT_SV2 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV3_STATUS] = 'COMPLETED' AND EXPT_SV3 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV4_STATUS] = 'COMPLETED' AND EXPT_SV4 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV5_STATUS] = 'COMPLETED' AND EXPT_SV5 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV6_STATUS] = 'COMPLETED' AND EXPT_SV6 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END) AS COMPLETE_SERVICES,
+        SUM(CASE WHEN [SV1_STATUS] = 'pending'   AND EXPT_SV1 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV2_STATUS] = 'pending'   AND EXPT_SV2 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV3_STATUS] = 'pending'   AND EXPT_SV3 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV4_STATUS] = 'pending'   AND EXPT_SV4 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV5_STATUS] = 'pending'   AND EXPT_SV5 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV6_STATUS] = 'pending'   AND EXPT_SV6 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END) AS PENDING_SERVICES,
+        SUM(CASE WHEN [SV1_STATUS] = 'started'   AND EXPT_SV1 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV2_STATUS] = 'started'   AND EXPT_SV2 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV3_STATUS] = 'started'   AND EXPT_SV3 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV4_STATUS] = 'started'   AND EXPT_SV4 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV5_STATUS] = 'started'   AND EXPT_SV5 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END)
+      + SUM(CASE WHEN [SV6_STATUS] = 'started'   AND EXPT_SV6 >= DATEADD(YEAR, -1, GETDATE()) THEN 1 ELSE 0 END) AS STARTED_SERVICES
+    FROM TBL_SERVICE_SCEDULE_UPDATE
+    WHERE                                               -- ← last year filter
+        EXPT_SV1 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV2 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV3 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV4 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV5 >= DATEADD(YEAR, -1, GETDATE())
+        OR EXPT_SV6 >= DATEADD(YEAR, -1, GETDATE())
+    GROUP BY [TECH_CODE]
+) s ON a.[TECH_CODE] = s.[TECH_CODE]
 
-        FROM MTBL_TECH_OFFICERS a
-
-        LEFT JOIN (
-            SELECT
-                [TECH_CODE],
-                SUM([JOB_COUNT]) AS ALL_JOBS,
-                SUM(CASE WHEN [JOB_STATUS] = 'TECH ALLOCATED'              THEN [JOB_COUNT] ELSE 0 END) AS PENDING_JOBS,
-                SUM(CASE WHEN [JOB_STATUS] IN ('COMPLETE','COMPLETED')     THEN [JOB_COUNT] ELSE 0 END) AS COMPLETE_JOBS,
-                SUM(CASE WHEN [JOB_STATUS] = 'started'                     THEN [JOB_COUNT] ELSE 0 END) AS STARTED_JOBS
-            FROM (
-                SELECT [TECH_CODE], [JOB_STATUS], COUNT(*) AS [JOB_COUNT]
-                FROM TBL_DAILY_JOBS
-                GROUP BY [TECH_CODE], [JOB_STATUS]
-            ) raw_jobs
-            GROUP BY [TECH_CODE]
-        ) j ON a.[TECH_CODE] = j.[TECH_CODE]
-
-        LEFT JOIN (
-            SELECT
-                [TECH_CODE],
-                COUNT(DISTINCT [T_ID]) AS ALL_SERVICES,
-                SUM(CASE WHEN [SV1_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV2_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV3_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV4_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV5_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV6_STATUS] = 'COMPLETED' THEN 1 ELSE 0 END) AS COMPLETE_SERVICES,
-                SUM(CASE WHEN [SV1_STATUS] = 'pending' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV2_STATUS] = 'pending' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV3_STATUS] = 'pending' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV4_STATUS] = 'pending' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV5_STATUS] = 'pending' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV6_STATUS] = 'pending' THEN 1 ELSE 0 END) AS PENDING_SERVICES,
-                SUM(CASE WHEN [SV1_STATUS] = 'started' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV2_STATUS] = 'started' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV3_STATUS] = 'started' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV4_STATUS] = 'started' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV5_STATUS] = 'started' THEN 1 ELSE 0 END)
-              + SUM(CASE WHEN [SV6_STATUS] = 'started' THEN 1 ELSE 0 END) AS STARTED_SERVICES
-            FROM TBL_SERVICE_SCEDULE_UPDATE
-            GROUP BY [TECH_CODE]
-        ) s ON a.[TECH_CODE] = s.[TECH_CODE]
-
-        WHERE a.[IS_ACTIVE] = '1'
-          AND a.[TECH_CODE]  = @techCode";
+WHERE a.[IS_ACTIVE] = '1'
+  AND a.[TECH_CODE]  = @techCode";
 
             try
             {
@@ -1043,6 +1134,7 @@ namespace ServvistaWebAppAPI.Services
               ,[RECALL_ID]
               ,[START_WORK_NOTE]
           FROM TBL_DAILY_JOBS where TECH_CODE = @techCode AND JOB_STATUS = 'TECH ALLOCATED'
+          
         ";
 
             try
@@ -1218,6 +1310,8 @@ namespace ServvistaWebAppAPI.Services
               ,[RECALL_ID]
               ,[START_WORK_NOTE]
           FROM TBL_DAILY_JOBS where TECH_CODE = @techCode
+          AND DJ_DATE >= DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)
+          AND DJ_DATE <  DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
         ";
 
             try

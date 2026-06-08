@@ -41,7 +41,7 @@ namespace ServvistaWebAppAPI.Services
             }
 
             throw new Exception("Sri Lankan timezone not found in this system.");
-        }        
+        }
 
         public async Task<int> GetRemainingDays(string techCode, string machineRefNo)
         {
@@ -115,19 +115,20 @@ namespace ServvistaWebAppAPI.Services
                         GROUP BY MatchedColumn, MatchedDate, MACHINE_REF
                         ORDER BY MatchedDate, MatchedColumn;
                         ";
-                DateTime today = GetSriLankanTime(); 
+                DateTime today = GetSriLankanTime();
                 DateTime firstDayOfMonth = new DateTime(today.Year, today.Month, 1);
                 DateTime lastDayOfMonth = new DateTime(today.Year, today.Month, 1).AddDays(31);
-                var result = connection.QuerySingleOrDefault<ServiceVisitMonthlyInfo>(query, new { 
-                    techcode = techCode, 
-                    machinerefno = machineRefNo,                     
-                    firstdaymonth = firstDayOfMonth, 
+                var result = connection.QuerySingleOrDefault<ServiceVisitMonthlyInfo>(query, new
+                {
+                    techcode = techCode,
+                    machinerefno = machineRefNo,
+                    firstdaymonth = firstDayOfMonth,
                     lastdayofmonth = lastDayOfMonth
                 });
-                DateTime dueDate = result.expectedVisitDate; 
-                remainingDays = (dueDate - today).Days;                
+                DateTime dueDate = result.expectedVisitDate;
+                remainingDays = (dueDate - today).Days;
             }
-            return remainingDays; 
+            return remainingDays;
         }
 
         //Get Total Service visits of Technician 
@@ -240,11 +241,11 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
 
 
                 var result = connection.Query<ServiceVisitMonthlyInfo>(query, new { techcode = techCode }).ToList();
-                servicesdateduevisits = result; 
+                servicesdateduevisits = result;
             }
 
             return servicesdateduevisits;
-        }        
+        }
 
         //Get the previous visits for a machine ref 
         public async Task<List<PreviousServiceVisitModel>> GetPreviousServiceVisits(string techCode, string machineRefNo)
@@ -268,9 +269,10 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
                   AND MACHINE_REF = @machinerefno
                   AND IS_ACTIVE = '0'
                 ORDER BY T_ID DESC;";
-                var result = connection.Query<PreviousServiceVisitModel>(query, new { 
-                    techcode = techCode, 
-                    machinerefno = machineRefNo 
+                var result = connection.Query<PreviousServiceVisitModel>(query, new
+                {
+                    techcode = techCode,
+                    machinerefno = machineRefNo
                 }).ToList();
 
                 previousServiceVisits = result;
@@ -361,8 +363,8 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
         {
             try
             {
-                string companyID = _tenantService.GetCompanyName();                
-                 
+                string companyID = _tenantService.GetCompanyName();
+
                 using (SqlConnection connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
@@ -387,7 +389,8 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
                     FROM MTBL_TECH_OFFICERS
                     WHERE TECH_CODE = @techcode";
 
-                    techMobile = connection.QuerySingle<string>(getMobileQuery, new { 
+                    techMobile = connection.QuerySingle<string>(getMobileQuery, new
+                    {
                         techcode = techCode
                     });
 
@@ -441,11 +444,11 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
 
                         int? recallID = connection.QuerySingleOrDefault<int?>(RecallIDQuery, new
                         {
-                            jobid = jobID, 
+                            jobid = jobID,
                             visitno = visitNo
                         });
 
-                     
+
 
                         if (recallID.HasValue && recallID.Value > 0)
                         {
@@ -457,7 +460,7 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
 
                             connection.Execute(updateRecallQuery, new
                             {
-                                status = jobStatus, 
+                                status = jobStatus,
                                 recallid = recallID
                             });
 
@@ -502,7 +505,7 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
                                 solutioncategory = solutionCategory,
                                 type = jobType,
                                 isrecall = isRecall,
-                                recallid = recallID, 
+                                recallid = recallID,
                                 startworknote = solution
                             });
                         }
@@ -539,7 +542,7 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
 
                         int? recallID = connection.QuerySingleOrDefault<int?>(RecallIDQuery, new
                         {
-                            rowid = jobID, 
+                            rowid = jobID,
                             visitno = visitNo
                         });
 
@@ -561,10 +564,10 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
                         }
                         else
                         {
-                            isRecall = false; 
+                            isRecall = false;
                         }
 
-                            string checkForActivityQuery = @"
+                        string checkForActivityQuery = @"
                             SELECT CASE 
                                 WHEN EXISTS (
                                     SELECT 1 
@@ -588,13 +591,13 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
 
                             connection.Execute(updateActivityQuery, new
                             {
-                                techcode = techCode, 
-                                completedate = GetSriLankanTime(), 
-                                note = solution, 
-                                solution = solutionCategory,                                 
+                                techcode = techCode,
+                                completedate = GetSriLankanTime(),
+                                note = solution,
+                                solution = solutionCategory,
                                 isrecall = isRecall,
                                 jobid = jobID,
-                                visitno = visitNo, 
+                                visitno = visitNo,
                                 completeworksolution = solution
                             });
                         }
@@ -617,7 +620,7 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
                             machinerefno = machineRefNo,
                             rowid = jobID
                         });
-                        
+
                         //Send customer a SMS after completing the Service jobs 
                         visitNo = visitNo - 1;
                         string feedbackLink = $"https://servvistagcp-001-site15.anytempurl.com/customer-feedback-machines/{serialNo}/service/{jobID}?visitNo={visitNo}?CompanyID={companyID}";
@@ -652,9 +655,10 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
                     }
                 }
 
-                return new ScheduleResponse { 
-                    errorMessage = "Successfully Updated", 
-                    isUpdate = true, 
+                return new ScheduleResponse
+                {
+                    errorMessage = "Successfully Updated",
+                    isUpdate = true,
                     statusCode = StatusCodes.Status200OK.ToString()
                 };
             }
@@ -1022,7 +1026,7 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
             AND ({visitColumn}_SMS IS NULL OR {visitColumn} IS NULL)
             ";
 
-            var result = connection.QueryFirstOrDefault<string>(query, new { serialno = serialNo, companyid = companyid});
+            var result = connection.QueryFirstOrDefault<string>(query, new { serialno = serialNo, companyid = companyid });
             return result;
         }
 
@@ -1035,35 +1039,39 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
                 connection.Open();
                 string query = @"
                 SELECT
-                    s.T_ID        AS rowId,
-                    s.CUS_ID      AS customerID,
-                    c.CUS_NAME    AS customerName,    
-                    c.CONTACT_PERSON AS contactPerson,
-                    c.TEL_NO      AS customerTelephone,
-                    s.M_LOC1      AS machineLocation01, 
-                    s.M_LOC2      AS machineLocation02, 
-                    s.M_LOC3      AS machineLocation03, 
-                    s.MACHINE_REF AS machineRefNo,
-                    s.M_MODEL AS machineModel,
-                    s.SERIAL_NO   AS serialNo,
-                    v.VisitNo     AS expectedVisitNo,
-                    CONVERT(char(10), v.ExpectedDate, 120) AS expectedVisitDate,
-                    v.VisitStatus AS VisitStatus
+                    s.T_ID        AS rowId,
+                    s.CUS_ID      AS customerID,
+                    s.CUS_NAME    AS customerName,
+                    c.CONTACT_PERSON AS contactPerson,
+                    c.TEL_NO      AS customerTelephone,
+                    s.M_LOC1      AS machineLocation01,
+                    s.M_LOC2      AS machineLocation02,
+                    s.M_LOC3      AS machineLocation03,
+                    s.MACHINE_REF AS machineRefNo,
+                    s.M_MODEL     AS machineModel,
+                    s.SERIAL_NO   AS serialNo,
+                    v.VisitNo     AS expectedVisitNo,
+	                MT.CUS_STATUS AS customerStatus,
+                    CONVERT(char(10), v.ExpectedDate, 120) AS expectedVisitDate,
+                    v.VisitStatus AS VisitStatus
                 FROM dbo.TBL_SERVICE_SCEDULE_UPDATE s
                 INNER JOIN dbo.MTBL_CUSTOMER_MASTER c
-                    ON c.CUS_CODE = s.CUS_ID
+                    ON c.CUS_CODE = s.CUS_ID
+                INNER JOIN dbo.TBL_MACHINE_TRANSACTION MT
+	                ON MT.MACHINE_REF_CODE = s.MACHINE_REF
                 CROSS APPLY
                 (
-                    VALUES
-                        ('EXPT_SV1', s.EXPT_SV1, s.SV1, s.SV1_STATUS),
-                        ('EXPT_SV2', s.EXPT_SV2, s.SV2, s.SV2_STATUS),
-                        ('EXPT_SV3', s.EXPT_SV3, s.SV3, s.SV3_STATUS),
-                        ('EXPT_SV4', s.EXPT_SV4, s.SV4, s.SV4_STATUS),
-                        ('EXPT_SV5', s.EXPT_SV5, s.SV5, s.SV5_STATUS),
-                        ('EXPT_SV6', s.EXPT_SV6, s.SV6, s.SV6_STATUS)
+                    VALUES
+                        ('EXPT_SV1', s.EXPT_SV1, s.SV1, s.SV1_STATUS),
+                        ('EXPT_SV2', s.EXPT_SV2, s.SV2, s.SV2_STATUS),
+                        ('EXPT_SV3', s.EXPT_SV3, s.SV3, s.SV3_STATUS),
+                        ('EXPT_SV4', s.EXPT_SV4, s.SV4, s.SV4_STATUS),
+                        ('EXPT_SV5', s.EXPT_SV5, s.SV5, s.SV5_STATUS),
+                        ('EXPT_SV6', s.EXPT_SV6, s.SV6, s.SV6_STATUS)
                 ) v (VisitNo, ExpectedDate, ActualVisit, VisitStatus)
                 WHERE s.TECH_CODE = @techcode
-                  AND v.ExpectedDate BETWEEN @firstdaymonth AND @lastdayofmonth
+                  AND v.ExpectedDate BETWEEN @firstdaymonth AND @lastdayofmonth
+                  AND MT.CUS_STATUS <> 'NS'
                 ORDER BY v.ExpectedDate, v.VisitNo;";
 
                 DateTime today = GetSriLankanTime();
@@ -1080,7 +1088,7 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
             }
 
             return machineCounts;
-        }        
+        }
 
         //Get Today Machine Information
         public async Task<List<ServiceVisitDailyInfoModel>> GetTodayServiceVisits(string techCode)
@@ -1116,11 +1124,12 @@ ORDER BY s.T_ID DESC, v.VisitNo;";
                 ";
                 DateTime yesterdayDate = GetSriLankanTime().AddDays(-1);
                 DateTime tomorrowDate = GetSriLankanTime().AddDays(1);
-                List<ServiceVisitDailyInfoModel> result = connection.Query<ServiceVisitDailyInfoModel>(query, new { 
-                    techcode = techCode, 
-                    FromDate = yesterdayDate, 
+                List<ServiceVisitDailyInfoModel> result = connection.Query<ServiceVisitDailyInfoModel>(query, new
+                {
+                    techcode = techCode,
+                    FromDate = yesterdayDate,
                     ToDate = tomorrowDate
-                }).ToList();                
+                }).ToList();
 
                 return result;
             }
