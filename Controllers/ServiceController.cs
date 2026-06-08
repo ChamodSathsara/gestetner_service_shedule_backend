@@ -41,40 +41,7 @@ namespace ServvistaWebAppAPI.Controllers
         }
 
 
-        //[Authorize]
-        //[HttpPost("updateservicevisit")]
-        //public IActionResult UpdateServiceVisit(string techCode, 
-        //                                        int visitNo, 
-        //                                        string machineRefNo, 
-        //                                        string jobStatus, 
-        //                                        int? meterReadingValue, 
-        //                                        int? hologramNumber, 
-        //                                        int jobId, 
-        //                                        string solution)
-        //{
-        //    try
-        //    {
-        //        var result = _serviceSchedule.UpdateServiceSchedule(
-        //                                               jobId,
-        //                                               techCode, 
-        //                                               visitNo, 
-        //                                               machineRefNo, 
-        //                                               jobStatus, 
-        //                                               meterReadingValue, 
-        //                                               hologramNumber,
-        //                                               solution).Result;
-
-        //        return Ok(new { result.errorMessage, result.statusCode});
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return BadRequest(new { 
-        //            errorMessage = ex.Message, 
-        //            statusCode = 500
-        //        }); 
-        //    }
-        //}
-
+        
         //GET api/service/getmonthlyservicevisits
         [Authorize]
         [HttpGet("getmonthlyservicevisits")]
@@ -84,6 +51,7 @@ namespace ServvistaWebAppAPI.Controllers
             {                
                 var result = _serviceSchedule.GetMonthlyVisits(techCode).Result;
                 return Ok(result);
+                //test
             }
             catch (Exception ex)
             {
