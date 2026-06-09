@@ -5,6 +5,7 @@
         public int T_ID { get; set; }
         public string? COM_ID { get; set; }
         public string? SERIAL_NO { get; set; }
+        public string? AREA { get; set; }
         public string? CUS_ID { get; set; }
         public string? CUS_NAME { get; set; }
         public string? TECH_CODE { get; set; }

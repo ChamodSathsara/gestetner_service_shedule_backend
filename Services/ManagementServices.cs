@@ -65,7 +65,7 @@ namespace ServvistaWebAppAPI.Services
             string servicesCountQuery = @"
             SELECT 
                 COUNT(*) AS TotalExpectedVisits
-            FROM [DB_A67CC4_Servvistagcp].[dbo].[TBL_SERVICE_SCEDULE_UPDATE] t
+            FROM TBL_SERVICE_SCEDULE_UPDATE t
             CROSS APPLY (VALUES
                 (t.EXPT_SV1),
                 (t.EXPT_SV2),

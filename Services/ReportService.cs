@@ -2018,7 +2018,7 @@ namespace ServvistaWebAppAPI.Services
         public List<MonthlyServiceReportDto> GetMonthlyServiceReportData(string startDate, string lastDate)
         {
             string sql = @"
-            SELECT 
+                SELECT 
                 T.T_ID,
                 T.COM_ID,
                 T.SERIAL_NO,
@@ -2026,14 +2026,13 @@ namespace ServvistaWebAppAPI.Services
                 T.CUS_NAME,
                 T.TECH_CODE,
                 T.TECH_NAME,
+                TC.AREA,                    -- Added from MTBL_TECH_OFFICERS
                 T.MACHINE_REF,
                 T.M_MODEL,
-
                 V.VisitNo,
                 V.ExpectedVisitDate,
                 V.ServiceDate,
                 V.MeterReading,
-
                 CASE 
                     WHEN V.Status IS NULL THEN 'Pending'
                     WHEN LOWER(V.Status) = 'pending' THEN 'Pending'
@@ -2041,9 +2040,9 @@ namespace ServvistaWebAppAPI.Services
                     WHEN LOWER(V.Status) = 'started' THEN 'Started'
                     ELSE V.Status
                 END AS VisitStatus
-
             FROM TBL_SERVICE_SCEDULE_UPDATE T
-
+            LEFT JOIN MTBL_TECH_OFFICERS TC   -- Joined on TECH_CODE
+                ON T.TECH_CODE = TC.TECH_CODE
             CROSS APPLY
             (
                 VALUES
@@ -2054,11 +2053,9 @@ namespace ServvistaWebAppAPI.Services
                     (5, T.EXPT_SV5, T.SV5, T.SV5_STATUS, T.SV5_MR),
                     (6, T.EXPT_SV6, T.SV6, T.SV6_STATUS, T.SV6_MR)
             ) V (VisitNo, ExpectedVisitDate, ServiceDate, Status, MeterReading)
-
             WHERE 
                 V.ExpectedVisitDate IS NOT NULL
                 AND V.ExpectedVisitDate BETWEEN @startDate AND @lastDate
-
             ORDER BY 
                 T.T_ID,
                 V.VisitNo";
