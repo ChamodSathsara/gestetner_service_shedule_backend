@@ -1039,41 +1039,52 @@ namespace ServvistaWebAppAPI.Services
                 connection.Open();
                 string query = @"
                 SELECT
-                    s.T_ID AS rowId,
-                    s.CUS_ID AS customerID,
-                    s.CUS_NAME AS customerName,
-                    c.CONTACT_PERSON AS contactPerson,
-                    c.TEL_NO AS customerTelephone,
-                    s.M_LOC1 AS machineLocation01,
-                    s.M_LOC2 AS machineLocation02,
-                    s.M_LOC3 AS machineLocation03,
-                    s.MACHINE_REF AS machineRefNo,
-                    s.M_MODEL AS machineModel,
-                    s.SERIAL_NO AS serialNo,
-                    v.VisitNo AS expectedVisitNo,
-                    MT.CUS_STATUS AS customerStatus,
-                    CONVERT(char(10), v.ExpectedDate, 120) AS expectedVisitDate,
-                    v.VisitStatus AS VisitStatus
+                    s.T_ID AS rowId,
+                    s.CUS_ID AS customerID,
+                    s.CUS_NAME AS customerName,
+                    c.CONTACT_PERSON AS contactPerson,
+                    c.TEL_NO AS customerTelephone,
+
+                    s.M_LOC1 AS machineLocation01,
+                    s.M_LOC2 AS machineLocation02,
+                    s.M_LOC3 AS machineLocation03,
+                    s.MACHINE_REF AS machineRefNo,
+                    s.M_MODEL AS machineModel,
+                    s.SERIAL_NO AS serialNo,
+
+                    v.VisitNo AS expectedVisitNo,
+                    MT.CUS_STATUS AS customerStatus,
+
+                    CONVERT(char(10), v.ExpectedDate, 120) AS expectedVisitDate,
+                    CONVERT(char(10), v.ServiceDate, 120) AS serviceDate,
+
+                    v.VisitStatus AS VisitStatus
+
                 FROM dbo.TBL_SERVICE_SCEDULE_UPDATE s
+
                 INNER JOIN dbo.MTBL_CUSTOMER_MASTER c
-                    ON c.CUS_CODE = s.CUS_ID
+                    ON c.CUS_CODE = s.CUS_ID
+
                 INNER JOIN dbo.TBL_MACHINE_TRANSACTION MT
-                    ON MT.SERIAL_NO = s.SERIAL_NO
+                    ON MT.SERIAL_NO = s.SERIAL_NO
+
                 CROSS APPLY
                 (
-                    VALUES
-                        ('EXPT_SV1', s.EXPT_SV1, s.SV1, s.SV1_STATUS),
-                        ('EXPT_SV2', s.EXPT_SV2, s.SV2, s.SV2_STATUS),
-                        ('EXPT_SV3', s.EXPT_SV3, s.SV3, s.SV3_STATUS),
-                        ('EXPT_SV4', s.EXPT_SV4, s.SV4, s.SV4_STATUS),
-                        ('EXPT_SV5', s.EXPT_SV5, s.SV5, s.SV5_STATUS),
-                        ('EXPT_SV6', s.EXPT_SV6, s.SV6, s.SV6_STATUS)
-                ) v (VisitNo, ExpectedDate, ActualVisit, VisitStatus)
+                    VALUES
+                        ('EXPT_SV1', s.EXPT_SV1, s.SV1, s.SV1_STATUS),
+                        ('EXPT_SV2', s.EXPT_SV2, s.SV2, s.SV2_STATUS),
+                        ('EXPT_SV3', s.EXPT_SV3, s.SV3, s.SV3_STATUS),
+                        ('EXPT_SV4', s.EXPT_SV4, s.SV4, s.SV4_STATUS),
+                        ('EXPT_SV5', s.EXPT_SV5, s.SV5, s.SV5_STATUS),
+                        ('EXPT_SV6', s.EXPT_SV6, s.SV6, s.SV6_STATUS)
+                ) v (VisitNo, ExpectedDate, ServiceDate, VisitStatus)
+
                 WHERE s.TECH_CODE = @techCode
-                    AND v.ExpectedDate >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
-                    AND v.ExpectedDate < DATEADD(MONTH, 1,
-                        DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
-                    AND MT.CUS_STATUS <> 'NS'
+                    AND v.ExpectedDate >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                    AND v.ExpectedDate < DATEADD(MONTH, 1,
+                        DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+                    AND MT.CUS_STATUS <> 'NS'
+
                 ORDER BY v.ExpectedDate, v.VisitNo;";
 
                 DateTime today = GetSriLankanTime();

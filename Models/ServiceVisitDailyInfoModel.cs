@@ -20,6 +20,7 @@
         public string machineModel { get; set; }
         public int RowId { get; set; } 
         public string customerID  { get; set; }
+        public string serviceDate { get; set; }
         public string customerName { get; set; } 
         public string contactPerson { get; set; } 
         public string customerTelephone { get; set; }
