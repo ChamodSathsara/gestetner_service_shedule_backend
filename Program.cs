@@ -5,6 +5,8 @@ using ServvistaWebAppAPI.Repositories;
 using ServvistaWebAppAPI.Services;
 using System.Security.Claims;
 using System.Text;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,29 +15,34 @@ var builder = WebApplication.CreateBuilder(args);
 // --------------------
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowOrigin", policy =>
-    {
-        policy
-            .SetIsOriginAllowed(_ => true)          // ⚠️ Only for testing! Works with credentials
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    });
-
-    // Recommended for production (uncomment when ready + add your real domains)
     //options.AddPolicy("AllowOrigin", policy =>
     //{
-    //    policy.WithOrigins(
-    //        "http://localhost:5173",
-    //        "http://localhost:3000",
-    //        "https://gestetner-service-schedule-4cse.vercel.app",
-    //        "https://gestetner-service-schedule-git-227f58-chamodsathsaras-projects.vercel.app"
-    //        // Add more preview branches if needed, e.g. "https://*.vercel.app"
-    //    )
-    //    .AllowAnyHeader()
-    //    .AllowAnyMethod()
-    //    .AllowCredentials();
+    //    policy
+    //        .SetIsOriginAllowed(_ => true)          // ⚠️ Only for testing! Works with credentials
+    //        .AllowAnyHeader()
+    //        .AllowAnyMethod()
+    //        .AllowCredentials();
     //});
+
+    options.AddPolicy("AllowOrigin", policy =>
+    {
+        policy.WithOrigins(
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "https://gestetner-service-schedule-4cse.vercel.app",
+            "https://gestetner-service-schedule-git-227f58-chamodsathsaras-projects.vercel.app",
+            "https://servvistagcp-001-site15.anytempurl.com"
+
+        // Add more preview branches if needed, e.g. "https://*.vercel.app"
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+    });
+
+
+    // Recommended for production (uncomment when ready + add your real domains)
+
 });
 
 // --------------------
@@ -57,6 +64,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IManagementRepository, ManagementServices>();
 builder.Services.AddScoped<IReportRepository, ReportService>();
+builder.Services.AddScoped<
+    IPushNotificationService,
+    FirebasePushNotificationService>();
 
 // --------------------
 // Authentication (JWT + SignalR)
@@ -101,6 +111,31 @@ builder.Services.AddAuthorization();
 // --------------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// --------------------
+// Firebase Admin SDK Initialization
+// --------------------
+
+var firebaseCredentialPath =
+    builder.Configuration["Firebase:ServiceAccountPath"];
+
+if (string.IsNullOrWhiteSpace(firebaseCredentialPath))
+{
+    throw new InvalidOperationException(
+        "Firebase:ServiceAccountPath is missing");
+}
+
+if (!Path.IsPathRooted(firebaseCredentialPath))
+{
+    firebaseCredentialPath = Path.Combine(
+        builder.Environment.ContentRootPath,
+        firebaseCredentialPath);
+}
+
+FirebaseApp.Create(new AppOptions
+{
+    Credential = GoogleCredential.FromFile(firebaseCredentialPath)
+});
 
 var app = builder.Build();
 
