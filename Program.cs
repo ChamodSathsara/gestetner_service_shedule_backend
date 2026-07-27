@@ -13,29 +13,34 @@ var builder = WebApplication.CreateBuilder(args);
 // --------------------
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowOrigin", policy =>
-    {
-        policy
-            .SetIsOriginAllowed(_ => true)          // ⚠️ Only for testing! Works with credentials
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-    });
-
-    // Recommended for production (uncomment when ready + add your real domains)
     //options.AddPolicy("AllowOrigin", policy =>
     //{
-    //    policy.WithOrigins(
-    //        "http://localhost:5173",
-    //        "http://localhost:3000",
-    //        "https://gestetner-service-schedule-4cse.vercel.app",
-    //        "https://gestetner-service-schedule-git-227f58-chamodsathsaras-projects.vercel.app"
-    //        // Add more preview branches if needed, e.g. "https://*.vercel.app"
-    //    )
-    //    .AllowAnyHeader()
-    //    .AllowAnyMethod()
-    //    .AllowCredentials();
+    //    policy
+    //        .SetIsOriginAllowed(_ => true)          // ⚠️ Only for testing! Works with credentials
+    //        .AllowAnyHeader()
+    //        .AllowAnyMethod()
+    //        .AllowCredentials();
     //});
+
+    options.AddPolicy("AllowOrigin", policy =>
+    {
+        policy.WithOrigins(
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "https://gestetner-service-schedule-4cse.vercel.app",
+            "https://gestetner-service-schedule-git-227f58-chamodsathsaras-projects.vercel.app",
+            "https://servvistagcp-001-site15.anytempurl.com"
+
+        // Add more preview branches if needed, e.g. "https://*.vercel.app"
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+    });
+
+
+    // Recommended for production (uncomment when ready + add your real domains)
+
 });
 
 // --------------------
