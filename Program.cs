@@ -5,6 +5,8 @@ using ServvistaWebAppAPI.Repositories;
 using ServvistaWebAppAPI.Services;
 using System.Security.Claims;
 using System.Text;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,6 +64,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IManagementRepository, ManagementServices>();
 builder.Services.AddScoped<IReportRepository, ReportService>();
+builder.Services.AddScoped<
+    IPushNotificationService,
+    FirebasePushNotificationService>();
 
 // --------------------
 // Authentication (JWT + SignalR)
@@ -106,6 +111,31 @@ builder.Services.AddAuthorization();
 // --------------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// --------------------
+// Firebase Admin SDK Initialization
+// --------------------
+
+var firebaseCredentialPath =
+    builder.Configuration["Firebase:ServiceAccountPath"];
+
+if (string.IsNullOrWhiteSpace(firebaseCredentialPath))
+{
+    throw new InvalidOperationException(
+        "Firebase:ServiceAccountPath is missing");
+}
+
+if (!Path.IsPathRooted(firebaseCredentialPath))
+{
+    firebaseCredentialPath = Path.Combine(
+        builder.Environment.ContentRootPath,
+        firebaseCredentialPath);
+}
+
+FirebaseApp.Create(new AppOptions
+{
+    Credential = GoogleCredential.FromFile(firebaseCredentialPath)
+});
 
 var app = builder.Build();
 
