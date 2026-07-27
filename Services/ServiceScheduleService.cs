@@ -148,43 +148,42 @@ namespace ServvistaWebAppAPI.Services
 
                 string query = @"
                 SELECT
-                    s.T_ID           AS rowId,
-                    s.CUS_ID         AS customerID,
-                    c.CUS_NAME       AS customerName,    
-                    c.CONTACT_PERSON AS contactPerson,
-                    c.TEL_NO         AS customerTelephone,
-                    s.M_LOC1         AS machineLocation01, 
-                    s.M_LOC2         AS machineLocation02, 
-                    s.M_LOC3         AS machineLocation03, 
-                    s.MACHINE_REF    AS machineRefNo,
-                    s.TECH_NAME      AS techName,
-                    s.SERIAL_NO      AS serialNo,
-                    v.VisitNo        AS expectedVisitNo,
-                    CONVERT(char(10), v.ExpectedDate, 120)  AS expectedVisitDate,
-                    CONVERT(char(10), v.ActualVisit, 120)   AS serviceDate,        -- ← added
-                    CASE 
-                        WHEN v.ActualVisit IS NOT NULL THEN 'COMPLETED'
-                        ELSE 'PENDING'
-                    END AS VisitStatus
-                FROM dbo.TBL_SERVICE_SCEDULE_UPDATE s
-                INNER JOIN dbo.MTBL_CUSTOMER_MASTER c
-                    ON c.CUS_CODE = s.CUS_ID
-                CROSS APPLY
-                (
-                    VALUES
-                        ('EXPT_SV1', s.EXPT_SV1, s.SV1),
-                        ('EXPT_SV2', s.EXPT_SV2, s.SV2),
-                        ('EXPT_SV3', s.EXPT_SV3, s.SV3),
-                        ('EXPT_SV4', s.EXPT_SV4, s.SV4),
-                        ('EXPT_SV5', s.EXPT_SV5, s.SV5),
-                        ('EXPT_SV6', s.EXPT_SV6, s.SV6)
-                ) v (VisitNo, ExpectedDate, ActualVisit)
-                WHERE s.TECH_CODE = @techCode
-                  AND v.ExpectedDate IS NOT NULL
-                  AND v.ExpectedDate >= @startOfLastMonth
-                  AND v.ExpectedDate < @startOfThisMonth
-                ORDER BY v.ExpectedDate, v.VisitNo;
-                ";
+                s.T_ID           AS rowId,
+                s.CUS_ID         AS customerID,
+                c.CUS_NAME       AS customerName,    
+                c.CONTACT_PERSON AS contactPerson,
+                c.TEL_NO         AS customerTelephone,
+                s.M_LOC1         AS machineLocation01, 
+                s.M_LOC2         AS machineLocation02, 
+                s.M_LOC3         AS machineLocation03, 
+                s.MACHINE_REF    AS machineRefNo,
+                s.TECH_NAME      AS techName,
+                s.SERIAL_NO      AS serialNo,
+                v.VisitNo        AS expectedVisitNo,
+                CONVERT(char(10), v.ExpectedDate, 120) AS expectedVisitDate,
+                CASE 
+                    WHEN v.ActualVisit IS NOT NULL THEN 'COMPLETED'
+                    ELSE 'PENDING'
+                END AS VisitStatus
+            FROM dbo.TBL_SERVICE_SCEDULE_UPDATE s
+            INNER JOIN dbo.MTBL_CUSTOMER_MASTER c
+                ON c.CUS_CODE = s.CUS_ID
+            CROSS APPLY
+            (
+                VALUES
+                    ('EXPT_SV1', s.EXPT_SV1, s.SV1),
+                    ('EXPT_SV2', s.EXPT_SV2, s.SV2),
+                    ('EXPT_SV3', s.EXPT_SV3, s.SV3),
+                    ('EXPT_SV4', s.EXPT_SV4, s.SV4),
+                    ('EXPT_SV5', s.EXPT_SV5, s.SV5),
+                    ('EXPT_SV6', s.EXPT_SV6, s.SV6)
+            ) v (VisitNo, ExpectedDate, ActualVisit)
+            WHERE s.TECH_CODE = @techCode
+              AND v.ExpectedDate IS NOT NULL
+              AND v.ExpectedDate >= @startOfLastMonth
+              AND v.ExpectedDate < @startOfThisMonth
+            ORDER BY v.ExpectedDate, v.VisitNo;
+        ";
 
                 var result = await connection.QueryAsync<ServiceVisitMonthlyInfo>(
                     query,
