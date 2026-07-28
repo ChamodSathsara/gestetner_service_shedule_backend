@@ -45,9 +45,9 @@ builder.Services.AddCors(options =>
 });
 
 // --------------------
-// Background jobs
+// (No background polling - AddCall triggers /api/internal/notify/job-assigned
+// immediately when a job is created. See Controllers/InternalNotifyController.cs)
 // --------------------
-builder.Services.AddHostedService<TechNotificationBackgroundService>();
 
 // --------------------
 // Controllers & Services
