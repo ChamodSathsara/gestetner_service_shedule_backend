@@ -5,8 +5,6 @@ using ServvistaWebAppAPI.Repositories;
 using ServvistaWebAppAPI.Services;
 using System.Security.Claims;
 using System.Text;
-using FirebaseAdmin;
-using Google.Apis.Auth.OAuth2;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +28,7 @@ builder.Services.AddCors(options =>
             "http://localhost:5173",
             "http://localhost:3000",
             "https://gestetner-service-schedule-4cse.vercel.app",
+            "https://gestetner-service-schedule.vercel.app",
             "https://gestetner-service-schedule-git-227f58-chamodsathsaras-projects.vercel.app",
             "https://servvistagcp-001-site15.anytempurl.com"
 
@@ -46,9 +45,8 @@ builder.Services.AddCors(options =>
 });
 
 // --------------------
-// SignalR
+// Background jobs
 // --------------------
-builder.Services.AddSignalR();
 builder.Services.AddHostedService<TechNotificationBackgroundService>();
 
 // --------------------
@@ -64,12 +62,11 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IManagementRepository, ManagementServices>();
 builder.Services.AddScoped<IReportRepository, ReportService>();
-builder.Services.AddScoped<
-    IPushNotificationService,
-    FirebasePushNotificationService>();
+builder.Services.AddScoped<PushSubscriptionRepository>();
+builder.Services.AddScoped<JobNotificationService>();
 
 // --------------------
-// Authentication (JWT + SignalR)
+// Authentication (JWT)
 // --------------------
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -87,21 +84,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ),
             NameClaimType = ClaimTypes.Name
         };
-
-        // Uncomment when SignalR with token in query string is needed
-        //options.Events = new JwtBearerEvents
-        //{
-        //    OnMessageReceived = context =>
-        //    {
-        //        var accessToken = context.Request.Query["access_token"];
-        //        var path = context.HttpContext.Request.Path;
-        //        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationhub"))
-        //        {
-        //            context.Token = accessToken;
-        //        }
-        //        return Task.CompletedTask;
-        //    }
-        //};
     });
 
 builder.Services.AddAuthorization();
@@ -111,31 +93,6 @@ builder.Services.AddAuthorization();
 // --------------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-// --------------------
-// Firebase Admin SDK Initialization
-// --------------------
-
-var firebaseCredentialPath =
-    builder.Configuration["Firebase:ServiceAccountPath"];
-
-if (string.IsNullOrWhiteSpace(firebaseCredentialPath))
-{
-    throw new InvalidOperationException(
-        "Firebase:ServiceAccountPath is missing");
-}
-
-if (!Path.IsPathRooted(firebaseCredentialPath))
-{
-    firebaseCredentialPath = Path.Combine(
-        builder.Environment.ContentRootPath,
-        firebaseCredentialPath);
-}
-
-FirebaseApp.Create(new AppOptions
-{
-    Credential = GoogleCredential.FromFile(firebaseCredentialPath)
-});
 
 var app = builder.Build();
 
@@ -162,7 +119,6 @@ app.UseAuthorization();
 // --------------------
 // Endpoints — these must come AFTER UseCors
 // --------------------
-app.MapHub<NotificationHub>("/notificationhub");
 app.MapControllers();
 
 app.Run();
