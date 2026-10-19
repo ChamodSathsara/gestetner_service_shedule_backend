@@ -2547,9 +2547,9 @@ namespace ServvistaWebAppAPI.Services
                     M.TEL_NO,
 
                     -- Machine Location from TBL_MACHINE_TRANSACTION
-                    M.M_LOC1 AS M_LOC1,
-                    M.M_LOC2 AS M_LOC2,
-                    M.M_LOC3 AS M_LOC3,
+                    M.INV_ADD1 AS M_LOC1,
+                    M.INV_ADD2 AS M_LOC2,
+                    M.INV_ADD3 AS M_LOC3,
 
                     COALESCE(
                         M.MA_PERIOD_START,
@@ -2773,8 +2773,15 @@ namespace ServvistaWebAppAPI.Services
                         }
 
                         // Summary: group all scheduled machines by agreement type.
-                        col.Item().PaddingTop(14).Text("Summary")
-                            .Bold().FontSize(14);
+                        col.Item().PaddingTop(18)
+                            .BorderBottom(2).BorderColor(Colors.Blue.Darken2)
+                            .PaddingBottom(6).Row(row =>
+                            {
+                                row.RelativeItem().Text("SERVICE SCHEDULE SUMMARY")
+                                    .Bold().FontSize(13).FontColor(Colors.Blue.Darken2);
+                                row.ConstantItem(110).AlignRight().Text($"Total: {data.Count}")
+                                    .SemiBold().FontSize(8.5f).FontColor(Colors.Grey.Darken2);
+                            });
 
                         col.Item().PaddingTop(6).Table(table =>
                         {
@@ -2789,16 +2796,23 @@ namespace ServvistaWebAppAPI.Services
 
                             table.Header(header =>
                             {
-                                void HeaderCell(string text) => header.Cell()
-                                    .Background(Colors.Grey.Lighten2)
-                                    .Border(0.5f).BorderColor(Colors.Grey.Medium)
-                                    .Padding(4)
-                                    .Text(text).Bold().FontSize(7.5f);
+                                void HeaderCell(string text, bool center = false)
+                                {
+                                    var cell = header.Cell()
+                                        .Background(Colors.Blue.Darken2)
+                                        .BorderRight(0.5f).BorderColor(Colors.Blue.Lighten1)
+                                        .PaddingVertical(6).PaddingHorizontal(5);
 
-                                HeaderCell("No.");
+                                    if (center)
+                                        cell.AlignCenter().Text(text).Bold().FontSize(7.5f).FontColor(Colors.White);
+                                    else
+                                        cell.Text(text).Bold().FontSize(7.5f).FontColor(Colors.White);
+                                }
+
+                                HeaderCell("NO.", true);
                                 HeaderCell("Customer Name");
-                                HeaderCell("Q Number");
-                                HeaderCell("Serial Number");
+                                HeaderCell("Q Number", true);
+                                HeaderCell("Serial Number", true);
                                 HeaderCell("Address");
                             });
 
@@ -2811,11 +2825,19 @@ namespace ServvistaWebAppAPI.Services
                             foreach (var agreementGroup in agreementGroups)
                             {
                                 table.Cell().ColumnSpan(5)
-                                    .Background(Colors.Grey.Lighten3)
-                                    .Border(0.5f).BorderColor(Colors.Grey.Medium)
-                                    .PaddingVertical(4).PaddingHorizontal(5)
-                                    .Text(agreementGroup.Key).Bold().FontSize(8.5f);
+                                    .Background(Colors.Blue.Lighten4)
+                                    .BorderBottom(1).BorderColor(Colors.Blue.Lighten2)
+                                    .PaddingVertical(5).PaddingHorizontal(7)
+                                    .Row(row =>
+                                    {
+                                        row.RelativeItem().Text(agreementGroup.Key.ToUpperInvariant())
+                                            .Bold().FontSize(8.5f).FontColor(Colors.Blue.Darken3);
+                                        row.ConstantItem(75).AlignRight()
+                                            .Text($"{agreementGroup.Count()} record(s)")
+                                            .SemiBold().FontSize(7).FontColor(Colors.Blue.Darken2);
+                                    });
 
+                                int rowIndex = 0;
                                 foreach (var record in agreementGroup)
                                 {
                                     var address = string.Join(", ", new[]
@@ -2825,17 +2847,23 @@ namespace ServvistaWebAppAPI.Services
                                         record.M_LOC3
                                     }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
-                                    void SummaryCell(string? text) => table.Cell()
-                                        .Border(0.5f).BorderColor(Colors.Grey.Lighten1)
-                                        .Padding(4)
-                                        .Text(text ?? "")
-                                        .FontSize(7.5f);
+                                    var rowBackground = rowIndex++ % 2 == 0
+                                        ? Colors.White
+                                        : Colors.Grey.Lighten4;
 
-                                    SummaryCell(summaryIndex++.ToString());
-                                    SummaryCell(record.Customer_Name);
-                                    SummaryCell(record.MACHINE_REF);
-                                    SummaryCell(record.SERIAL_NO);
-                                    SummaryCell(address);
+                                    IContainer SummaryCell() => table.Cell()
+                                        .Background(rowBackground)
+                                        .BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2)
+                                        .PaddingVertical(5).PaddingHorizontal(5)
+                                        .MinHeight(22).AlignMiddle();
+
+                                    SummaryCell().AlignCenter()
+                                        .Text(summaryIndex++.ToString()).SemiBold().FontSize(7.5f)
+                                        .FontColor(Colors.Grey.Darken2);
+                                    SummaryCell().Text(record.Customer_Name ?? "").SemiBold().FontSize(7.5f);
+                                    SummaryCell().AlignCenter().Text(record.MACHINE_REF ?? "").FontSize(7.5f);
+                                    SummaryCell().AlignCenter().Text(record.SERIAL_NO ?? "").FontSize(7.5f);
+                                    SummaryCell().Text(address).FontSize(7.5f).FontColor(Colors.Grey.Darken3);
                                 }
                             }
                         });
