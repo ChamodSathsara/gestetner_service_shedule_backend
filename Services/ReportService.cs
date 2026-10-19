@@ -800,7 +800,7 @@ namespace ServvistaWebAppAPI.Services
         FROM TBL_MACHINE_TRANSACTION
         WHERE
             [CUS_STATUS] = 'MA'
-            AND [MACHINE_TYPE] IN ('MFP','BCP','MPC')
+            AND [MACHINE_TYPE] IN ('MFP','BCP','MPC','DCP','MF')
             AND [MA_PERIOD_END] > @fromDate
             AND [MA_PERIOD_END] < @toDate
         ORDER BY [CUS_CODE]";
@@ -2517,6 +2517,341 @@ namespace ServvistaWebAppAPI.Services
             return document.GeneratePdf();
         }
 
+        // ──────────────────────────────────────────────────────────────────────
+        // MONTHLY SERVICE SCHEDULE: fetch data
+        // ──────────────────────────────────────────────────────────────────────
+        public List<MonthlyServiceScheduleDto> GetMonthlyServiceScheduleData(
+            string startDate, string lastDate, string techCode, string machineRefStartAt)
+        {
+            DateTime fromDate = DateTime.Parse(startDate);
+            DateTime toDate = DateTime.Parse(lastDate);
 
+            // Normalize: "all" (any case) or blank means no prefix filter
+            bool filterByPrefix = !string.IsNullOrWhiteSpace(machineRefStartAt)
+                                   && !machineRefStartAt.Equals("all", StringComparison.OrdinalIgnoreCase);
+
+            string sql = @"
+                SELECT 
+                    T.T_ID,
+                    T.COM_ID,
+                    T.SERIAL_NO,
+                    T.CUS_ID AS Customer_Code,
+                    T.CUS_NAME AS Customer_Name,
+                    T.TECH_CODE,
+                    T.TECH_NAME,
+                    TC.AREA,
+                    T.MACHINE_REF,
+                    T.M_MODEL,
+
+                    M.CUS_STATUS AS agrementType,
+                    M.TEL_NO,
+
+                    -- Machine Location from TBL_MACHINE_TRANSACTION
+                    M.M_LOC1 AS M_LOC1,
+                    M.M_LOC2 AS M_LOC2,
+                    M.M_LOC3 AS M_LOC3,
+
+                    COALESCE(
+                        M.MA_PERIOD_START,
+                        M.M_INS_DATE
+                    ) AS machine_instalation_or_period_start_date,
+
+                    V.VisitNo,
+                    V.ExpectedVisitDate,
+                    V.ServiceDate,
+                    V.MeterReading,
+
+                    CASE 
+                        WHEN V.Status IS NULL THEN 'Pending'
+                        WHEN LOWER(V.Status) = 'pending' THEN 'Pending'
+                        WHEN LOWER(V.Status) = 'completed' THEN 'Completed'
+                        WHEN LOWER(V.Status) = 'started' THEN 'Started'
+                        ELSE V.Status
+                    END AS VisitStatus
+
+                FROM [DB_A67CC4_Servvistagcp].[dbo].[TBL_SERVICE_SCEDULE_UPDATE] T
+
+                LEFT JOIN [DB_A67CC4_Servvistagcp].[dbo].[MTBL_TECH_OFFICERS] TC 
+                    ON T.TECH_CODE = TC.TECH_CODE
+
+                LEFT JOIN [DB_A67CC4_Servvistagcp].[dbo].[TBL_MACHINE_TRANSACTION] M 
+                    ON T.SERIAL_NO = M.SERIAL_NO
+
+                CROSS APPLY
+                (
+                    VALUES
+                        (1, T.EXPT_SV1, T.SV1, T.SV1_STATUS, T.SV1_MR),
+                        (2, T.EXPT_SV2, T.SV2, T.SV2_STATUS, T.SV2_MR),
+                        (3, T.EXPT_SV3, T.SV3, T.SV3_STATUS, T.SV3_MR),
+                        (4, T.EXPT_SV4, T.SV4, T.SV4_STATUS, T.SV4_MR),
+                        (5, T.EXPT_SV5, T.SV5, T.SV5_STATUS, T.SV5_MR),
+                        (6, T.EXPT_SV6, T.SV6, T.SV6_STATUS, T.SV6_MR)
+                ) V (
+                    VisitNo,
+                    ExpectedVisitDate,
+                    ServiceDate,
+                    Status,
+                    MeterReading
+                )
+
+                WHERE 
+                    V.ExpectedVisitDate IS NOT NULL
+                    AND V.ExpectedVisitDate >= @fromDate
+                    AND V.ExpectedVisitDate < @toDate
+                    AND T.TECH_CODE = @techCode
+                    AND M.CUS_STATUS <> 'NS'";
+
+            if (filterByPrefix)
+            {
+                sql += " AND T.MACHINE_REF LIKE @machineRefPattern";
+            }
+
+            sql += @"
+            ORDER BY
+                V.ExpectedVisitDate ASC,
+                T.T_ID,
+                V.VisitNo";
+
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                connection.Open();
+
+                var parameters = new DynamicParameters();
+                parameters.Add("fromDate", fromDate);
+                parameters.Add("toDate", toDate);
+                parameters.Add("techCode", techCode);
+
+                if (filterByPrefix)
+                {
+                    // Escape LIKE wildcards in the character just in case, then anchor prefix match
+                    string escaped = machineRefStartAt.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
+                    parameters.Add("machineRefPattern", escaped + "%");
+                }
+
+                return connection.Query<MonthlyServiceScheduleDto>(
+                    sql, parameters, buffered: false).ToList();
+            }
+            catch (SqlException ex)
+            {
+                Console.WriteLine($"[SQL ERROR] GetMonthlyServiceScheduleData: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] GetMonthlyServiceScheduleData: {ex.Message}");
+                throw;
+            }
+        }
+
+
+        // ──────────────────────────────────────────────────────────────────────
+        // MONTHLY SERVICE SCHEDULE: PDF (NuGet: QuestPDF)
+        // ──────────────────────────────────────────────────────────────────────
+        public byte[] DownloadMonthlyServiceSchedulePdf(
+    string startDate, string lastDate, string techCode, string machineRefStartAt)
+        {
+            var data = GetMonthlyServiceScheduleData(startDate, lastDate, techCode, machineRefStartAt);
+
+            DateTime fromDate = DateTime.Parse(startDate);
+            string periodLabel = fromDate.ToString("MMMM yyyy");
+            string techName = data.FirstOrDefault()?.TECH_NAME ?? "";
+
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(20);
+                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
+
+                    // ── Header (repeats on every page) ─────────────────────────
+                    page.Header().Column(col =>
+                    {
+                        col.Item().Row(row =>
+                        {
+                            row.RelativeItem().AlignCenter()
+                                .Text($"Service Schedule Report - {periodLabel}")
+                                .Bold().FontSize(18);
+                        });
+
+                        col.Item().Row(row =>
+                        {
+                            row.RelativeItem().Text("");
+                            row.ConstantItem(160).AlignRight()
+                                .Text($"{DateTime.Now:dd-MMMM-yyyy}").FontSize(9);
+                        });
+
+                        col.Item().PaddingTop(5).Border(1).BorderColor(Colors.Black)
+                            .Padding(8).Row(row =>
+                            {
+                                row.RelativeItem().Column(c =>
+                                {
+                                    c.Item().Text("Technician Code").Bold().FontSize(9);
+                                    c.Item().Text(techCode).FontSize(10);
+                                });
+                                row.RelativeItem().Column(c =>
+                                {
+                                    c.Item().AlignCenter().Text("Technician Name").Bold().FontSize(9);
+                                    c.Item().AlignCenter().Text(techName).FontSize(10);
+                                });
+                                row.RelativeItem().Column(c =>
+                                {
+                                    c.Item().AlignRight().Text("Time Period").Bold().FontSize(9);
+                                    c.Item().AlignRight().Text(periodLabel).FontSize(10);
+                                });
+                            });
+                    });
+
+                    // ── Content: one bordered block per visit ──────────────────
+                    page.Content().PaddingTop(10).Column(col =>
+                    {
+                        int counter = 1;
+                        foreach (var r in data)
+                        {
+                            var record = r;
+                            var idx = counter++;
+
+                            col.Item().PaddingBottom(8).Border(1).BorderColor(Colors.Black)
+                                .Padding(8).Row(row =>
+                                {
+                                    row.ConstantItem(22).AlignTop().Text(idx.ToString())
+                                .Bold().FontSize(11);
+
+                                    // Left: auto-filled fields
+                                    row.RelativeItem(1.5f).PaddingRight(10).Column(left =>
+                                    {
+                                        void F(string label, string? val) => left.Item().PaddingBottom(2).Row(fr =>
+                                        {
+                                            fr.ConstantItem(160).Text(label).FontSize(8.5f).SemiBold();
+                                            fr.ConstantItem(10).Text(":").FontSize(8.5f);
+                                            fr.RelativeItem().Text(val ?? "").FontSize(8.5f);
+                                        });
+
+                                        var address = string.Join(", ", new[] { record.M_LOC1, record.M_LOC2, record.M_LOC3 }
+                                    .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+                                        F("Customer Code", record.Customer_Code);
+                                        F("Customer / Company Name", record.Customer_Name);
+                                        F("Address", address);
+                                        F("Telephone", record.TEL_NO);
+                                        F("Machine Model", record.M_MODEL);
+                                        F("Serial No.", record.SERIAL_NO);
+                                        F("Q.No.", record.MACHINE_REF);
+                                        F("Machine Install or Agreement Date",
+                                    record.machine_instalation_or_period_start_date?.ToString("yyyy-MM-dd"));
+                                        F("Maintenance Service Date (Expected Visit Date)",
+                                    record.ExpectedVisitDate?.ToString("yyyy-MM-dd"));
+                                        F("Visit No", record.VisitNo.ToString());
+                                        F("Service Type / Status", record.agrementType);
+                                    });
+
+                                    row.ConstantItem(1).Background(Colors.Grey.Lighten1);
+
+                                    // Right: manual fields (blank for filling in by hand)
+                                    row.RelativeItem(1.2f).PaddingLeft(10).Column(right =>
+                                    {
+                                        void M(string label) => right.Item().PaddingBottom(6).Row(fr =>
+                                        {
+                                            fr.ConstantItem(120).Text(label).FontSize(8.5f).SemiBold();
+                                            fr.ConstantItem(10).Text(":").FontSize(8.5f);
+                                            fr.RelativeItem().Text("________________").FontSize(8.5f);
+                                        });
+
+                                        M("Service Date");
+                                        M("Counter Reading");
+                                        M("Meter Reading");
+                                        right.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
+                                        M("Customer Name");
+                                        M("Customer Mobile No.");
+                                        M("Rubber Stamp");
+                                        right.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
+                                        M("Customer Signature");
+                                        M("Customer Designation");
+                                    });
+                                });
+                        }
+
+                        // Summary: group all scheduled machines by agreement type.
+                        col.Item().PaddingTop(14).Text("Summary")
+                            .Bold().FontSize(14);
+
+                        col.Item().PaddingTop(6).Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.ConstantColumn(32);       // Index
+                                columns.RelativeColumn(2.2f);    // Customer name
+                                columns.RelativeColumn(0.9f);    // Q number
+                                columns.RelativeColumn(1.2f);    // Serial number
+                                columns.RelativeColumn(2.7f);    // Address
+                            });
+
+                            table.Header(header =>
+                            {
+                                void HeaderCell(string text) => header.Cell()
+                                    .Background(Colors.Grey.Lighten2)
+                                    .Border(0.5f).BorderColor(Colors.Grey.Medium)
+                                    .Padding(4)
+                                    .Text(text).Bold().FontSize(7.5f);
+
+                                HeaderCell("No.");
+                                HeaderCell("Customer Name");
+                                HeaderCell("Q Number");
+                                HeaderCell("Serial Number");
+                                HeaderCell("Address");
+                            });
+
+                            int summaryIndex = 1;
+                            var agreementGroups = data
+                                .GroupBy(record => string.IsNullOrWhiteSpace(record.agrementType)
+                                    ? "Not Specified"
+                                    : record.agrementType.Trim());
+
+                            foreach (var agreementGroup in agreementGroups)
+                            {
+                                table.Cell().ColumnSpan(5)
+                                    .Background(Colors.Grey.Lighten3)
+                                    .Border(0.5f).BorderColor(Colors.Grey.Medium)
+                                    .PaddingVertical(4).PaddingHorizontal(5)
+                                    .Text(agreementGroup.Key).Bold().FontSize(8.5f);
+
+                                foreach (var record in agreementGroup)
+                                {
+                                    var address = string.Join(", ", new[]
+                                    {
+                                        record.M_LOC1,
+                                        record.M_LOC2,
+                                        record.M_LOC3
+                                    }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+                                    void SummaryCell(string? text) => table.Cell()
+                                        .Border(0.5f).BorderColor(Colors.Grey.Lighten1)
+                                        .Padding(4)
+                                        .Text(text ?? "")
+                                        .FontSize(7.5f);
+
+                                    SummaryCell(summaryIndex++.ToString());
+                                    SummaryCell(record.Customer_Name);
+                                    SummaryCell(record.MACHINE_REF);
+                                    SummaryCell(record.SERIAL_NO);
+                                    SummaryCell(address);
+                                }
+                            }
+                        });
+                    });
+
+                    page.Footer().AlignCenter().Text(x =>
+                    {
+                        x.Span("Page ").FontSize(8);
+                        x.CurrentPageNumber().FontSize(8);
+                        x.Span(" of ").FontSize(8);
+                        x.TotalPages().FontSize(8);
+                    });
+                });
+            });
+
+            return document.GeneratePdf();
+        }
     }
 }

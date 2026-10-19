@@ -493,5 +493,38 @@ namespace ServvistaWebAppAPI.Controllers
             }
         }
 
+
+
+        [Authorize]
+        [HttpGet("getMonthlyServiceSchedule")]
+        public IActionResult GetMonthlyServiceSchedule(string startDate, string lastDate, string techCode , string machineRefStartAt)
+        {
+            try
+            {
+                var data = _reportService.GetMonthlyServiceScheduleData(startDate, lastDate, techCode , machineRefStartAt);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [Authorize]
+        [HttpGet("downloadMonthlyServiceSchedulePdf")]
+        public IActionResult DownloadMonthlyServiceSchedulePdf(string startDate, string lastDate, string techCode , string machineRefStartAt)
+        {
+            try
+            {
+                var bytes = _reportService.DownloadMonthlyServiceSchedulePdf(startDate, lastDate, techCode ,  machineRefStartAt);
+                var fileName = $"ServiceSchedule_{techCode}_{startDate}_to_{lastDate}.pdf";
+                return File(bytes, "application/pdf", fileName);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
     }
 }

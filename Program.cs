@@ -27,6 +27,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
             "http://localhost:5173",
             "http://localhost:3000",
+            "http://localhost:3001",
             "https://gestetner-service-schedule-4cse.vercel.app",
             "https://gestetner-service-schedule.vercel.app",
             "https://gestetner-service-schedule-git-227f58-chamodsathsaras-projects.vercel.app",

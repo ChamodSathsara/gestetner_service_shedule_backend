@@ -45,5 +45,9 @@ namespace ServvistaWebAppAPI.Repositories
         public List<FeedbackReportDto> GetFeedbackReportData(string startDate, string lastDate);
         public byte[] DownloadFeedbackReportExcel(string startDate, string lastDate);
         public byte[] DownloadFeedbackReportPdf(string startDate, string lastDate);
+
+        //Monthly Service Schedule
+        public List<MonthlyServiceScheduleDto> GetMonthlyServiceScheduleData(string startDate, string lastDate, string techCode , string machineRefStartAt);
+        public byte[] DownloadMonthlyServiceSchedulePdf(string startDate, string lastDate, string techCode , string machineRefStartAt);
     }
 }
