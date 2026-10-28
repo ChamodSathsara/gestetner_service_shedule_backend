@@ -2706,74 +2706,8 @@ namespace ServvistaWebAppAPI.Services
                     // ── Content: one bordered block per visit ──────────────────
                     page.Content().PaddingTop(10).Column(col =>
                     {
-                        int counter = 1;
-                        foreach (var r in data)
-                        {
-                            var record = r;
-                            var idx = counter++;
-
-                            col.Item().PaddingBottom(8).Border(1).BorderColor(Colors.Black)
-                                .Padding(8).Row(row =>
-                                {
-                                    row.ConstantItem(22).AlignTop().Text(idx.ToString())
-                                .Bold().FontSize(11);
-
-                                    // Left: auto-filled fields
-                                    row.RelativeItem(1.5f).PaddingRight(10).Column(left =>
-                                    {
-                                        void F(string label, string? val) => left.Item().PaddingBottom(2).Row(fr =>
-                                        {
-                                            fr.ConstantItem(160).Text(label).FontSize(8.5f).SemiBold();
-                                            fr.ConstantItem(10).Text(":").FontSize(8.5f);
-                                            fr.RelativeItem().Text(val ?? "").FontSize(8.5f);
-                                        });
-
-                                        var address = string.Join(", ", new[] { record.M_LOC1, record.M_LOC2, record.M_LOC3 }
-                                    .Where(s => !string.IsNullOrWhiteSpace(s)));
-
-                                        F("Customer Code", record.Customer_Code);
-                                        F("Customer / Company Name", record.Customer_Name);
-                                        F("Address", address);
-                                        F("Telephone", record.TEL_NO);
-                                        F("Machine Model", record.M_MODEL);
-                                        F("Serial No.", record.SERIAL_NO);
-                                        F("Q.No.", record.MACHINE_REF);
-                                        F("Machine Install or Agreement Date",
-                                    record.machine_instalation_or_period_start_date?.ToString("yyyy-MM-dd"));
-                                        F("Maintenance Service Date (Expected Visit Date)",
-                                    record.ExpectedVisitDate?.ToString("yyyy-MM-dd"));
-                                        F("Visit No", record.VisitNo.ToString());
-                                        F("Service Type / Status", record.agrementType);
-                                    });
-
-                                    row.ConstantItem(1).Background(Colors.Grey.Lighten1);
-
-                                    // Right: manual fields (blank for filling in by hand)
-                                    row.RelativeItem(1.2f).PaddingLeft(10).Column(right =>
-                                    {
-                                        void M(string label) => right.Item().PaddingBottom(6).Row(fr =>
-                                        {
-                                            fr.ConstantItem(120).Text(label).FontSize(8.5f).SemiBold();
-                                            fr.ConstantItem(10).Text(":").FontSize(8.5f);
-                                            fr.RelativeItem().Text("________________").FontSize(8.5f);
-                                        });
-
-                                        M("Service Date");
-                                        M("Counter Reading");
-                                        M("Meter Reading");
-                                        right.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
-                                        M("Customer Name");
-                                        M("Customer Mobile No.");
-                                        M("Rubber Stamp");
-                                        right.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
-                                        M("Customer Signature");
-                                        M("Customer Designation");
-                                    });
-                                });
-                        }
-
                         // Summary: group all scheduled machines by agreement type.
-                        col.Item().PaddingTop(18)
+                        col.Item()
                             .BorderBottom(2).BorderColor(Colors.Blue.Darken2)
                             .PaddingBottom(6).Row(row =>
                             {
@@ -2783,7 +2717,7 @@ namespace ServvistaWebAppAPI.Services
                                     .SemiBold().FontSize(8.5f).FontColor(Colors.Grey.Darken2);
                             });
 
-                        col.Item().PaddingTop(6).Table(table =>
+                        col.Item().PaddingTop(6).PaddingBottom(18).Table(table =>
                         {
                             table.ColumnsDefinition(columns =>
                             {
@@ -2867,6 +2801,73 @@ namespace ServvistaWebAppAPI.Services
                                 }
                             }
                         });
+
+                        int counter = 1;
+                        foreach (var r in data)
+                        {
+                            var record = r;
+                            var idx = counter++;
+
+                            col.Item().PaddingBottom(8).Border(1).BorderColor(Colors.Black)
+                                .Padding(8).Row(row =>
+                                {
+                                    row.ConstantItem(22).AlignTop().Text(idx.ToString())
+                                .Bold().FontSize(11);
+
+                                    // Left: auto-filled fields
+                                    row.RelativeItem(1.5f).PaddingRight(10).Column(left =>
+                                    {
+                                        void F(string label, string? val) => left.Item().PaddingBottom(2).Row(fr =>
+                                        {
+                                            fr.ConstantItem(160).Text(label).FontSize(8.5f).SemiBold();
+                                            fr.ConstantItem(10).Text(":").FontSize(8.5f);
+                                            fr.RelativeItem().Text(val ?? "").FontSize(8.5f);
+                                        });
+
+                                        var address = string.Join(", ", new[] { record.M_LOC1, record.M_LOC2, record.M_LOC3 }
+                                    .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+                                        F("Customer Code", record.Customer_Code);
+                                        F("Customer / Company Name", record.Customer_Name);
+                                        F("Address", address);
+                                        F("Telephone", record.TEL_NO);
+                                        F("Machine Model", record.M_MODEL);
+                                        F("Serial No.", record.SERIAL_NO);
+                                        F("Q.No.", record.MACHINE_REF);
+                                        F("Machine Install or Agreement Date",
+                                    record.machine_instalation_or_period_start_date?.ToString("yyyy-MM-dd"));
+                                        F("Maintenance Service Date (Expected Visit Date)",
+                                    record.ExpectedVisitDate?.ToString("yyyy-MM-dd"));
+                                        F("Visit No", record.VisitNo.ToString());
+                                        F("Service Type / Status", record.agrementType);
+                                    });
+
+                                    row.ConstantItem(1).Background(Colors.Grey.Lighten1);
+
+                                    // Right: manual fields (blank for filling in by hand)
+                                    row.RelativeItem(1.2f).PaddingLeft(10).Column(right =>
+                                    {
+                                        void M(string label) => right.Item().PaddingBottom(6).Row(fr =>
+                                        {
+                                            fr.ConstantItem(120).Text(label).FontSize(8.5f).SemiBold();
+                                            fr.ConstantItem(10).Text(":").FontSize(8.5f);
+                                            fr.RelativeItem().Text("________________").FontSize(8.5f);
+                                        });
+
+                                        M("Service Date");
+                                        M("Counter Reading");
+                                        M("Meter Reading");
+                                        right.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
+                                        M("Customer Name");
+                                        M("Customer Mobile No.");
+                                        M("Rubber Stamp");
+                                        right.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
+                                        M("Customer Signature");
+                                        M("Customer Designation");
+                                    });
+                                });
+                        }
+
                     });
 
                     page.Footer().AlignCenter().Text(x =>
