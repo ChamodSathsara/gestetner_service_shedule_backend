@@ -2569,12 +2569,12 @@ namespace ServvistaWebAppAPI.Services
                         ELSE V.Status
                     END AS VisitStatus
 
-                FROM [DB_A67CC4_Servvistagcp].[dbo].[TBL_SERVICE_SCEDULE_UPDATE] T
+                FROM [dbo].[TBL_SERVICE_SCEDULE_UPDATE] T
 
-                LEFT JOIN [DB_A67CC4_Servvistagcp].[dbo].[MTBL_TECH_OFFICERS] TC 
+                LEFT JOIN [dbo].[MTBL_TECH_OFFICERS] TC
                     ON T.TECH_CODE = TC.TECH_CODE
 
-                LEFT JOIN [DB_A67CC4_Servvistagcp].[dbo].[TBL_MACHINE_TRANSACTION] M 
+                LEFT JOIN [dbo].[TBL_MACHINE_TRANSACTION] M
                     ON T.SERIAL_NO = M.SERIAL_NO
 
                 CROSS APPLY
